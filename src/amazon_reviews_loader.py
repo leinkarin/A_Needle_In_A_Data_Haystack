@@ -34,14 +34,18 @@ class AmazonReviews2023Loader:
         Args:
             category: Specific category to load (e.g., "Electronics"). 
                      If None, loads all categories
-            split: Dataset split to load ("full" is the main split)
+            split: Dataset split to load. Options:
+                   - "full": Complete dataset (default)
+                   - "train": Training split (if available)
+                   - "test": Test split (if available)
+                   - "validation": Validation split (if available)
             streaming: Whether to use streaming mode (recommended for large datasets)
             num_samples: Number of samples to load (for testing/exploration)
             
         Returns:
             Dataset object containing the reviews
         """
-        print(f"Loading Amazon Reviews 2023 dataset...")
+        print(f"Loading Amazon Reviews 2023 dataset (split: {split})...")
         
         if category and category not in self.CATEGORIES:
             print(f"Warning: Category '{category}' not in known categories.")
@@ -76,7 +80,7 @@ class AmazonReviews2023Loader:
             elif num_samples and not streaming:
                 dataset = dataset.select(range(min(num_samples, len(dataset))))
             
-            print(f"✓ Successfully loaded dataset")
+            print(f"✓ Successfully loaded dataset (split: {split})")
             if not streaming:
                 print(f"  Dataset size: {len(dataset)} samples")
             

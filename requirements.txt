@@ -73,3 +73,8 @@ urllib3==2.4.0
 wandb==0.19.10
 wrapt==1.17.2
 zipp==3.22.0
+
+datasets~=2.19.0
+scikit-learn~=1.7.1
+sentence-transformers~=2.5.1
+nomic-ai~=2.0.0
