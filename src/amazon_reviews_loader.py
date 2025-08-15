@@ -7,18 +7,9 @@ import pandas as pd
 class AmazonReviews2023Loader:
     """Loader class for Amazon Reviews 2023 dataset"""
     
-    # Available categories in the dataset
     CATEGORIES = [
-        "All_Beauty", "Amazon_Fashion", "Appliances", "Arts_Crafts_and_Sewing",
-        "Automotive", "Baby_Products", "Beauty_and_Personal_Care", "Books",
-        "CDs_and_Vinyl", "Cell_Phones_and_Accessories", "Clothing_Shoes_and_Jewelry",
-        "Digital_Music", "Electronics", "Gift_Cards", "Grocery_and_Gourmet_Food",
-        "Health_and_Household", "Health_and_Personal_Care", "Home_and_Garden",
-        "Home_and_Kitchen", "Industrial_and_Scientific", "Kindle_Store",
-        "Magazine_Subscriptions", "Movies_and_TV", "Musical_Instruments",
-        "Office_Products", "Patio_Lawn_and_Garden", "Pet_Supplies", "Prime_Pantry",
-        "Software", "Sports_and_Outdoors", "Subscription_Boxes", "Tools_and_Home_Improvement",
-        "Toys_and_Games", "Video_Games"
+        "Automotive", "Books", "Clothing_Shoes_and_Jewelry", "Electronics", "Grocery_and_Gourmet_Food",
+        "Home_and_Kitchen", "Musical_Instruments", "Sports_and_Outdoors", "Tools_and_Home_Improvement", "Unknown"
     ]
     
     def __init__(self):
@@ -175,7 +166,7 @@ class AmazonReviews2023Loader:
         }
     
     def save_sample_data(self, dataset: Dataset, output_file: str, 
-                        num_samples: int = 1000, format: str = "json") -> None:
+                        num_samples: int = 1000, format: str = "csv") -> None:
         """
         Save sample data to file for local analysis
         
