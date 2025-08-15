@@ -141,7 +141,7 @@ def create_dataset(
                             'category': category,
                             'title': title,
                             'text': text,
-                            'images': review.get('images'),
+                            'has_images': bool(review.get('images') and len(review.get('images', [])) > 0),
                             'asin': review.get('asin'),
                             'parent_asin': review.get('parent_asin'),
                             'user_id': review.get('user_id'),
@@ -241,8 +241,8 @@ def main():
     """Main function to create the dataset"""
 
     train_samples_per_category = 10000
-    val_samples_per_category = 10000
-    test_samples_per_category = 1000
+    test_samples_per_category = 10000
+    val_samples_per_category = 1000
     max_tokens = 1024
     
     if len(sys.argv) > 1:
