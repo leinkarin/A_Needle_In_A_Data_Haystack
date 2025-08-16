@@ -69,23 +69,7 @@ class BARTRegressionPredictor:
             
         except Exception as e:
             raise RuntimeError(f"Failed to load model: {str(e)}")
-    
-    def format_input(self, review_text: str, category: str = "Unknown", title: str = "") -> str:
-        """
-        Format input text to match the training data format.
-        
-        Args:
-            review_text: The review text
-            category: Product category (default: "Unknown")
-            title: Review title (default: empty)
-        
-        Returns:
-            Formatted input string
-        """
-        if title:
-            return f"[CAT={category}] [TITLE={title}] {review_text}"
-        else:
-            return f"[CAT={category}] {review_text}"
+
     
     def preprocess_text(self, text: str, max_length: int = 1024) -> Dict[str, torch.Tensor]:
         """
@@ -112,23 +96,17 @@ class BARTRegressionPredictor:
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         return inputs
     
-    def predict_single(self, review_text: str, category: str = "Unknown", title: str = "") -> float:
+    def predict_single(self, review_data:str) -> float:
         """
         Predict helpfulness score for a single review.
-        
-        Args:
-            review_text: The review text
-            category: Product category
-            title: Review title
         
         Returns:
             Predicted helpfulness score
         """
         if self.model is None or self.tokenizer is None:
             raise RuntimeError("Model not loaded. Call load_model() first.")
-        
-        formatted_text = self.format_input(review_text, category, title)
-        inputs = self.preprocess_text(formatted_text)
+
+        inputs = self.preprocess_text(review_data)
         
         with torch.no_grad():
             outputs = self.model(**inputs)
@@ -137,17 +115,12 @@ class BARTRegressionPredictor:
         return prediction
     
     def predict_batch(self, 
-                     reviews: List[str], 
-                     categories: Optional[List[str]] = None, 
-                     titles: Optional[List[str]] = None,
+                     reviews_data: List[str],
                      batch_size: int = 8) -> List[float]:
         """
         Predict helpfulness scores for multiple reviews.
         
         Args:
-            reviews: List of review texts
-            categories: List of categories (optional)
-            titles: List of titles (optional)
             batch_size: Batch size for processing
         
         Returns:
@@ -155,22 +128,12 @@ class BARTRegressionPredictor:
         """
         if self.model is None or self.tokenizer is None:
             raise RuntimeError("Model not loaded. Call load_model() first.")
-        
-        if categories is None:
-            categories = ["Unknown"] * len(reviews)
-        if titles is None:
-            titles = [""] * len(reviews)
-        
-        formatted_texts = [
-            self.format_input(review, cat, title) 
-            for review, cat, title in zip(reviews, categories, titles)
-        ]
-        
+
         predictions = []
         
         # Process in batches
-        for i in range(0, len(formatted_texts), batch_size):
-            batch_texts = formatted_texts[i:i + batch_size]
+        for i in range(0, len(reviews_data), batch_size):
+            batch_texts = reviews_data[i:i + batch_size]
             
             # Tokenize batch
             inputs = self.tokenizer(
@@ -198,16 +161,11 @@ class BARTRegressionPredictor:
         return predictions
     
     def predict_from_dataframe(self, 
-                              df: pd.DataFrame, 
-                              text_column: str = "text",
-                              category_column: Optional[str] = "category",
-                              title_column: Optional[str] = "title",
+                              df: pd.DataFrame,
                               batch_size: int = 8) -> pd.DataFrame:
-        reviews = df[text_column].tolist()
-        categories = df[category_column].tolist() if category_column and category_column in df.columns else None
-        titles = df[title_column].tolist() if title_column and title_column in df.columns else None
-        
-        predictions = self.predict_batch(reviews, categories, titles, batch_size)
+        reviews_data = df["review_data"].tolist()
+
+        predictions = self.predict_batch(reviews_data, batch_size)
         
         result_df = df.copy()
         result_df['predicted_helpfulness'] = predictions
