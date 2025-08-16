@@ -49,6 +49,7 @@ class AnomalyDetector:
             List of rating gap scores
         """
         return [abs(round(pred) - actual) / 4.0 for pred, actual in zip(predicted_ratings, actual_ratings)]
+
     
     def calculate_no_image_score(self, has_images: List[bool]) -> List[float]:
         """
