@@ -1,9 +1,10 @@
 import pandas as pd
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, pipeline
 from typing import List, Dict, Any
 import sys
 import os
 import re
+import numpy as np
 from amazon_reviews_loader import AmazonReviews2023Loader
 
 
@@ -30,6 +31,32 @@ def clean_text(text: str) -> str:
     text = ''.join(char for char in text if char.isprintable() or char.isspace())
     
     return text
+
+
+def compute_sentiment_score(text: str, sentiment_pipeline) -> float:
+    """
+    Compute sentiment score for a single text.
+    
+    Args:
+        text: Review text to analyze
+        sentiment_pipeline: Pre-loaded sentiment analysis pipeline
+        
+    Returns:
+        Sentiment score between -1 (negative) and 1 (positive)
+    """
+    try:
+        result = sentiment_pipeline(text)[0]
+        confidence = result["score"]
+        label = result["label"].lower()
+        
+        if label.startswith("neg"):
+            return -confidence
+        elif label.startswith("pos"):
+            return confidence
+        else:
+            return 0.0
+    except Exception:
+        return 0.0
 
 
 def remove_duplicates(data_list: List[Dict]) -> List[Dict]:
@@ -64,12 +91,23 @@ def create_dataset(
     """
     Create train, validation, and test datasets with specified parameters.
     
+    STRICT NULL-FREE DATA GUARANTEE:
+    This function ensures NO NULL VALUES in any field by:
+    - Rejecting reviews with any None/null values in critical fields
+    - Validating all text fields are non-empty after cleaning
+    - Converting and validating data types for all fields
+    - Ensuring rating is in valid range (1.0-5.0)
+    - Filtering out invalid ASINs, user IDs, timestamps
+    - Rejecting negative helpful votes
+    
     Args:
         train_samples_per_category: Number of training samples per category
         val_samples_per_category: Number of validation samples per category
         test_samples_per_category: Number of test samples per category
         max_tokens: Maximum token length for reviews (inclusive)
-        save_individual_categories: Whether to save individual CSV files for each category
+        
+    Returns:
+        bool: True if dataset creation successful, False otherwise
     """
     
     print("=== Amazon Reviews Dataset Creator ===")
@@ -86,6 +124,14 @@ def create_dataset(
     
     print("\nLoading BART-base tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained("facebook/bart-base")
+    
+    print("Loading sentiment analysis pipeline...")
+    sentiment_pipeline = pipeline(
+        "sentiment-analysis", 
+        model="spacesedan/sentiment-analysis-longformer",
+        tokenizer="spacesedan/sentiment-analysis-longformer",
+        device=-1  # Use CPU
+    )
     
     loader = AmazonReviews2023Loader()
     
@@ -118,15 +164,67 @@ def create_dataset(
                     break
                     
                 try:
-                    raw_title = str(review.get('title', ''))
-                    raw_text = str(review.get('text', ''))
+                    # Extract all required fields first
+                    raw_title = review.get('title')
+                    raw_text = review.get('text')
                     rating = review.get('rating')
+                    asin = review.get('asin')
+                    parent_asin = review.get('parent_asin')
+                    user_id = review.get('user_id')
+                    timestamp = review.get('timestamp')
+                    verified_purchase = review.get('verified_purchase')
+                    helpful_vote = review.get('helpful_vote')
+                    images = review.get('images')
                     
-                    title = clean_text(raw_title)
-                    text = clean_text(raw_text)
-
-                    if title == "" or text == "" or rating is None or not (1.0 <= float(rating) <= 5.0):
+                    # Check for any null/None values in critical fields
+                    if (raw_title is None or raw_text is None or rating is None or 
+                        asin is None or parent_asin is None or user_id is None or 
+                        timestamp is None or verified_purchase is None or helpful_vote is None):
                         continue
+                    
+                    # Convert to strings and clean text fields
+                    title = clean_text(str(raw_title))
+                    text = clean_text(str(raw_text))
+                    
+                    # Validate cleaned text is not empty
+                    if title == "" or text == "":
+                        continue
+                    
+                    # Validate rating is in correct range
+                    try:
+                        rating_float = float(rating)
+                        if not (1.0 <= rating_float <= 5.0):
+                            continue
+                    except (ValueError, TypeError):
+                        continue
+                    
+                    # Validate and convert other fields
+                    try:
+                        # Ensure verified_purchase is boolean
+                        verified_purchase_bool = bool(verified_purchase)
+                        
+                        # Ensure helpful_vote is numeric (can be 0)
+                        helpful_vote_int = int(helpful_vote) if helpful_vote is not None else 0
+                        if helpful_vote_int < 0:  # Negative helpful votes don't make sense
+                            continue
+                            
+                        # Ensure timestamp is valid (basic check)
+                        if not timestamp or str(timestamp).strip() == "":
+                            continue
+                            
+                        # Ensure ASINs are valid strings
+                        asin_str = str(asin).strip()
+                        parent_asin_str = str(parent_asin).strip()
+                        user_id_str = str(user_id).strip()
+                        
+                        if not asin_str or not parent_asin_str or not user_id_str:
+                            continue
+                            
+                    except (ValueError, TypeError):
+                        continue
+
+                    # Handle images (can be None/empty, but convert to consistent boolean)
+                    has_images = bool(images and len(images) > 0)
 
                     review_data = f"[CAT={category}] [TITLE={title}] {text}"
 
@@ -134,20 +232,29 @@ def create_dataset(
                     token_count = len(tokens)
                     
                     if token_count <= max_tokens:
+                        # Calculate sentiment score for the review text
+                        sentiment_score = compute_sentiment_score(text, sentiment_pipeline)
+                        
+                        # Calculate rating mismatch (normalized rating vs sentiment)
+                        rating_normalized = (rating_float - 3.0) / 2.0  # Convert 1-5 to -1 to 1 scale
+                        rating_mismatch = abs(sentiment_score - rating_normalized)
+                        
                         category_data.append({
                             'review_data': review_data,
-                            'rating': float(rating),
+                            'rating': rating_float,
                             'token_count': token_count,
                             'category': category,
                             'title': title,
                             'text': text,
-                            'has_images': bool(review.get('images') and len(review.get('images', [])) > 0),
-                            'asin': review.get('asin'),
-                            'parent_asin': review.get('parent_asin'),
-                            'user_id': review.get('user_id'),
-                            'timestamp': review.get('timestamp'),
-                            'verified_purchase': review.get('verified_purchase'),
-                            'helpful_vote': review.get('helpful_vote')
+                            'has_images': has_images,
+                            'asin': asin_str,
+                            'parent_asin': parent_asin_str,
+                            'user_id': user_id_str,
+                            'timestamp': timestamp,
+                            'verified_purchase': verified_purchase_bool,
+                            'helpful_vote': helpful_vote_int,
+                            'sentiment': sentiment_score,
+                            'rating_mismatch': rating_mismatch
                         })
 
                 except Exception as e:
