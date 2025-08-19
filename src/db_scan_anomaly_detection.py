@@ -1,238 +1,200 @@
 from __future__ import annotations
 import argparse
-from typing import Any, Dict, Iterable, List, Optional, Tuple
-
+import os
+from typing import Tuple
 import numpy as np
 import pandas as pd
 from sklearn.cluster import DBSCAN
-from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from sentence_transformers import SentenceTransformer
-from transformers import pipeline, AutoTokenizer
-from tqdm import tqdm
-from amazon_reviews_loader import AmazonReviews2023Loader
 
 
-TEXT_KEYS = [
-    "text",
-    "review_body",
-    "content",
-    "reviewText",
-    "body",
-]
-RATING_KEYS = [
-    "rating",
-    "star_rating",
-    "overall",
-    "rating_star",
-    "stars",
-]
-VERIFIED_KEYS = ["verified_purchase", "verified", "is_verified_purchase"]
-
-
-def first_nonnull(row_dict: Dict[str, Any], keys: List[str], default=None):
-    for key in keys:
-        if key in row_dict and row_dict[key] is not None:
-            return row_dict[key]
-    return default
-
-# ---------------------------------------------------------------------------
-#  Data loading
-# ---------------------------------------------------------------------------
-
-def collect_rows(dataset: Iterable, max_rows: Optional[int] = None) -> List[Dict[str, Any]]:
-    """Materialise review rows with canonical fields."""
-    rows: List[Dict[str, Any]] = []
-    for row in dataset:
-        text = first_nonnull(row, TEXT_KEYS, default="")
-        rating = first_nonnull(row, RATING_KEYS, default=None)
-        if not text or rating is None:
-            print(f"Skipping row: {row} because of missing text or rating")
-        try:
-            rating_val = float(rating)
-        except Exception:
-            print(f"Skipping row: {row} because of invalid rating")
-            continue
-
-        rows.append(
-            {
-                "text": str(text)[:2000],  # trim very long reviews
-                "rating": rating_val,
-                "verified": bool(first_nonnull(row, VERIFIED_KEYS, default=False)),
-            }
-        )
-        if max_rows and len(rows) >= max_rows:
-            break
-    return rows
-
-def filter_reviews_by_token_limit(
-    rows: List[Dict[str, Any]], 
-    max_tokens: int = 4096,
-    sentiment_model_id: str = "spacesedan/sentiment-analysis-longformer"
-) -> List[Dict[str, Any]]:
-
-    tokenizer = AutoTokenizer.from_pretrained(sentiment_model_id)
+def load_data_from_csv(csv_path: str, max_rows: int = None) -> pd.DataFrame:
+    """
+    Load data directly from CSV file.
+    Assumes the sample dataset format with standardized column names.
+    """
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"CSV file not found: {csv_path}")
     
-    filtered_rows = []
-    skipped_count = 0
+    print(f"Loading data from: {csv_path}")
+    df = pd.read_csv(csv_path)
     
-    print(f"Filtering {len(rows)} reviews")
+    if max_rows and len(df) > max_rows:
+        df = df.head(max_rows)
     
-    for row in tqdm(rows, desc="Filtering by token count"):
-        text = row["text"]
-        rating = row["rating"]
-        verified = row["verified"]
+    print(f"Loaded {len(df)} reviews from CSV")
+    return df
 
-        tokens = tokenizer.encode(text, add_special_tokens=False)
-        token_count = len(tokens)
+
+# compute_sentiment_scores function removed - sentiment scores are now pre-calculated during data creation
+
+
+def build_features_data(df: pd.DataFrame) -> np.ndarray:
+    """
+    Build features from data    
+    Args:
+        df: DataFrame with review data (must include 'sentiment' and 'rating_mismatch' columns)
         
-        if token_count <= max_tokens:
-            filtered_rows.append(
-                {
-                    "text": text,
-                    "rating": rating,
-                    "verified": verified,
-                }
-            )
-        else:
-            skipped_count += 1
+    Returns:
+        Feature array for clustering
+    """
+    print("Building features from pre-calculated data...")
     
-    print(f"Filtered dataset: {len(filtered_rows)} reviews kept, {skipped_count} reviews skipped")
-    return filtered_rows
-
-def compute_sentiment_scores(
-    texts: List[str],
-    batch_size: int = 128,
-    model_id: str = "spacesedan/sentiment-analysis-longformer",
-) -> np.ndarray:
-    """Return sentiment confidence scores in [-1, 1] range."""
-    clf = pipeline("sentiment-analysis", model=model_id, tokenizer=model_id, device=-1)
-
-    scores: List[float] = []
-    for i in tqdm(range(0, len(texts), batch_size), desc="Sentiment"):
-        preds = clf(texts[i : i + batch_size])
-        for p in preds:
-            confidence = p["score"]
-            label = p["label"].lower()
-            
-            if label.startswith("neg"):
-                scores.append(-confidence)
-            elif label.startswith("pos"):
-                scores.append(confidence)
-            else:
-                scores.append(0.0)
-    return np.asarray(scores, dtype=np.float32)
-
-
-def embed_text(
-    texts: List[str],
-    model_id: str = "nomic-ai/nomic-embed-text-v1",
-    batch_size: int = 128,
-) -> np.ndarray:
-    """Encode *texts* into Nomic embeddings (n, 768)."""
-    model = SentenceTransformer(model_id)
-    return model.encode(texts, batch_size=batch_size, show_progress_bar=True)
-
-# ---------------------------------------------------------------------------
-#  Feature builder
-# ---------------------------------------------------------------------------
-
-def build_features(rows: List[Dict[str, Any]]) -> Tuple[np.ndarray, pd.DataFrame]:
-    """Return (X, meta_df)."""
-    texts = [r["text"] for r in rows]
-
-    # ---- heavy lifting ----------------------------------------------------
-    X_text = embed_text(texts)
-    sentiment = compute_sentiment_scores(texts)  # (n,)
-
-    # ---- numeric & categorical -------------------------------------------
-    rating_scaled = (np.array([r["rating"] for r in rows]) - 3.0) / 2.0  # (n,)
-    mismatch = sentiment - rating_scaled  # key anomaly signal
-    verified = np.array([r["verified"] for r in rows], dtype=float)[:, None]
-
-    meta = pd.DataFrame(
-        {
-            "rating_scaled": rating_scaled,
-            "sentiment": sentiment,
-            "mismatch": mismatch,
-            "verified": verified.squeeze(),
-        }
-    )
-
+    # Use pre-calculated sentiment scores and rating mismatch from CSV
+    features = {
+        "rating": df['rating'].values,
+        "helpful_votes": df['helpful_vote'].values,  
+        "verified_purchase": df['verified_purchase'].astype(int).values,
+        "has_images": df['has_images'].astype(int).values,
+        "token_count": df['token_count'].values,
+        "sentiment": df['sentiment'].values,  
+        "rating_mismatch": df['rating_mismatch'].values
+    }
+    
+    feature_matrix = np.column_stack([
+        features["rating"],
+        features["helpful_votes"], 
+        features["verified_purchase"],
+        features["has_images"],
+        features["token_count"],
+        features["sentiment"],
+        features["rating_mismatch"]
+    ])
+    
     scaler = StandardScaler()
-    meta_scaled = scaler.fit_transform(meta[["rating_scaled", "sentiment", "mismatch"]])
-
-    X = np.hstack([X_text, meta_scaled, verified])  # verified untouched (0/1)
-    return X, meta
-
-# ---------------------------------------------------------------------------
-#  Dimensionality reduction & clustering
-# ---------------------------------------------------------------------------
-
-def pca_reduce(X: np.ndarray, n_components: int = 50) -> np.ndarray:
-    if n_components <= 0 or n_components >= X.shape[1]:
-        return X
-    pca = PCA(n_components=n_components, random_state=0)
-    return pca.fit_transform(X)
+    features_data = scaler.fit_transform(feature_matrix)
+    
+    print(f"Created features of shape: {features_data.shape}")
+    print(f"Features: rating, helpful_votes, verified_purchase, has_images, token_count, sentiment, rating_mismatch")
+    
+    return features_data
 
 
-def dbscan_labels(
-    X_red: np.ndarray, eps: float = 0.5, min_samples: int = 10
-) -> np.ndarray:
-    """Label each point; −1 ⇒ anomaly/outlier."""
-    db = DBSCAN(eps=eps, min_samples=min_samples, n_jobs=-1)
-    return db.fit_predict(X_red)
+def find_anomalies_with_dbscan(
+    features_data: np.ndarray,
+    eps: float = 0.5,
+    min_samples: int = 5,
+    n_anomalies: int = 100,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Use DBSCAN to find anomalies using metadata features only.
+    
+    Returns:
+        - cluster_labels: cluster assignment for each point (-1 = noise/anomaly)
+        - distances: distance to nearest core point for each point
+        - anomaly_indices: indices of top anomalies
+    """
+    print(f"Running DBSCAN with eps={eps}, min_samples={min_samples}...")
+    
+    # Run DBSCAN directly on the 7-dimensional feature space
+    dbscan = DBSCAN(eps=eps, min_samples=min_samples)
+    cluster_labels = dbscan.fit_predict(features_data)
+    
+    # Calculate distances to nearest core point
+    distances = np.full(len(features_data), np.inf)
+    core_indices = np.where(cluster_labels != -1)[0]
+    
+    if len(core_indices) > 0:
+        core_points = features_data[core_indices]
+        for i in range(len(features_data)):
+            if cluster_labels[i] == -1:  # noise point
+                # Distance to nearest core point
+                dists_to_cores = np.linalg.norm(features_data[i] - core_points, axis=1)
+                distances[i] = np.min(dists_to_cores)
+            else:
+                # Distance to cluster center
+                cluster_center = np.mean(features_data[cluster_labels == cluster_labels[i]], axis=0)
+                distances[i] = np.linalg.norm(features_data[i] - cluster_center)
+    
+    # Get top anomalies (noise points first, then by distance)
+    noise_indices = np.where(cluster_labels == -1)[0]
+    other_indices = np.where(cluster_labels != -1)[0]
+    
+    # Sort noise points by distance, then other points by distance
+    if len(noise_indices) > 0:
+        noise_sorted = noise_indices[np.argsort(distances[noise_indices])]
+    else:
+        noise_sorted = np.array([])
+    
+    if len(other_indices) > 0:
+        other_sorted = other_indices[np.argsort(distances[other_indices])]
+    else:
+        other_sorted = np.array([])
+    
+    # Combine: noise points first, then others
+    anomaly_indices = np.concatenate([noise_sorted, other_sorted])[:n_anomalies]
+    
+    return cluster_labels, distances, anomaly_indices
 
-# ---------------------------------------------------------------------------
-#  Main entryp
-# ---------------------------------------------------------------------------
 
 def main():
-    ap = argparse.ArgumentParser(description="DBSCAN anomaly detection for reviews")
-    ap.add_argument("--category", default="Electronics", help="Product category")
-    ap.add_argument("--num-samples", type=int, default=2000, help="Sample size (0 ⇒ all)")
-    ap.add_argument("--max-tokens", type=int, default=4096, help="Maximum tokens per review")
-    ap.add_argument("--pca-dim", type=int, default=50, help="PCA components (0 ⇒ skip)")
-    ap.add_argument("--eps", type=float, default=0.6, help="DBSCAN eps radius")
-    ap.add_argument("--min-samples", type=int, default=15, help="DBSCAN min_samples")
-    ap.add_argument("--out", default="dbscan_anomalies.csv", help="Output CSV file")
-    args = ap.parse_args()
-
-    loader = AmazonReviews2023Loader()
-
-    print(
-        f"=== DBSCAN anomaly detector ===\n"
-        f"Category: {args.category} | N: {args.num_samples} | Max tokens: {args.max_tokens} | "
-        f"PCA: {args.pca_dim} | eps: {args.eps} | min_samples: {args.min_samples}"
-    )
-
-    # -- Data ----------------------------------------------------------------
-    ds = loader.load_reviews(
-        category=args.category,
-        streaming=True,
-        split="test",
-        num_samples=args.num_samples if args.num_samples > 0 else None,
+    parser = argparse.ArgumentParser(description="Find anomalous Amazon reviews using metadata features with DBSCAN")
+    parser.add_argument("--csv-path", required=True, help="Path to CSV file")
+    parser.add_argument("--out", default="dbscan_anomalies.csv", help="Output CSV file")
+    parser.add_argument("--num-samples", type=int, default=20000, help="Max number of samples to process")
+    parser.add_argument("--eps", type=float, default=0.6, help="DBSCAN epsilon parameter")
+    parser.add_argument("--min-samples", type=int, default=15, help="DBSCAN min_samples parameter")
+    parser.add_argument("--n-anomalies", type=int, default=100, help="Number of anomalies to return")
+    
+    args = parser.parse_args()
+    
+    # Load data
+    df = load_data_from_csv(args.csv_path, max_rows=args.num_samples)
+    
+    # Build features
+    features_data = build_features_data(df)
+    
+    # Find anomalies
+    cluster_labels, distances, anomaly_indices = find_anomalies_with_dbscan(
+        features_data, 
+        eps=args.eps, 
+        min_samples=args.min_samples,
+        n_anomalies=args.n_anomalies
     )
     
-    # First collect the initial sample
-    initial_rows = collect_rows(ds, max_rows=args.num_samples)
-    print(f"Collected {len(initial_rows):,} initial reviews.")
+    # Create results dataframe
+    results = []
+    for idx in anomaly_indices:
+        # Use pre-calculated sentiment score from CSV
+        sentiment_score = df.iloc[idx]['sentiment']
+        rating_mismatch = df.iloc[idx]['rating_mismatch']
+        
+        results.append({
+            "index": idx,
+            "text": df.iloc[idx]['text'],
+            "rating": df.iloc[idx]['rating'],
+            "cluster": cluster_labels[idx],
+            "distance": distances[idx],
+            "sentiment": sentiment_score,
+            "rating_mismatch": rating_mismatch,
+            "verified": df.iloc[idx]['verified_purchase'],
+            "helpful_votes": df.iloc[idx]['helpful_vote'],
+            "has_images": df.iloc[idx]['has_images'],
+            "token_count": df.iloc[idx]['token_count'],
+        })
     
-    rows = filter_reviews_by_token_limit(initial_rows, max_tokens=args.max_tokens)
-    print(f"After token filtering: {len(rows):,} reviews remaining.")
-
-    # -- Features ------------------------------------------------------------
-    X_full, meta = build_features(rows)
-    X_red = pca_reduce(X_full, n_components=args.pca_dim)
-
-    # -- Clustering ----------------------------------------------------------
-    labels = dbscan_labels(X_red, eps=args.eps, min_samples=args.min_samples)
-    n_out = int(np.sum(labels == -1))
-    print(f"Flagged {n_out} / {len(rows)} reviews as anomalies.")
-
-    # -- Save ----------------------------------------------------------------
-    pd.DataFrame(rows)[labels == -1].to_csv(args.out, index=False)
-    print(f"✓ Results written to {args.out}")
+    # Save results
+    results_df = pd.DataFrame(results)
+    results_df.to_csv(args.out, index=False)
+    print(f"Saved {len(results)} anomalies to {args.out}")
+    
+    # Print summary
+    n_noise = np.sum(cluster_labels == -1)
+    n_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
+    print(f"\nDBSCAN Results (Metadata + Sentiment):")
+    print(f"  Total points: {len(cluster_labels)}")
+    print(f"  Noise points (anomalies): {n_noise}")
+    print(f"  Clusters found: {n_clusters}")
+    print(f"  Features used: rating, helpful_votes, verified_purchase, has_images, token_count, sentiment, rating_mismatch")
+    
+    print(f"\nTop 5 anomalies:")
+    for i, row in results_df.head().iterrows():
+        cluster_type = "NOISE" if row['cluster'] == -1 else f"Cluster {row['cluster']}"
+        print(f"{i+1}. Rating: {row['rating']}, {cluster_type}, Distance: {row['distance']:.3f}")
+        print(f"   Sentiment: {row['sentiment']:.3f}, Mismatch: {row['rating_mismatch']:.3f}")
+        print(f"   Helpful: {row['helpful_votes']}, Verified: {row['verified']}, Images: {row['has_images']}")
+        print(f"   Text: {row['text']}...")
+        print()
 
 
 if __name__ == "__main__":
