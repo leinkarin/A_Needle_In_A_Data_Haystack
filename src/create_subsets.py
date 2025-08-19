@@ -1,10 +1,12 @@
 import pandas as pd
-from transformers import AutoTokenizer, pipeline
+from transformers import AutoTokenizer
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from typing import List, Dict, Any
 import sys
 import os
 import re
 import numpy as np
+import argparse
 from amazon_reviews_loader import AmazonReviews2023Loader
 
 
@@ -33,56 +35,44 @@ def clean_text(text: str) -> str:
     return text
 
 
-def compute_sentiment_score(text: str, sentiment_pipeline) -> float:
+def compute_sentiment_score(text: str, sentiment_analyzer) -> float:
     """
-    Compute sentiment score for a single text.
+    Compute sentiment score for a single text using VADER.
     
     Args:
         text: Review text to analyze
-        sentiment_pipeline: Pre-loaded sentiment analysis pipeline
+        sentiment_analyzer: Pre-loaded VADER sentiment analyzer
         
     Returns:
         Sentiment score between -1 (negative) and 1 (positive)
     """
     try:
-        result = sentiment_pipeline(text)[0]
-        confidence = result["score"]
-        label = result["label"].lower()
-        
-        if label.startswith("neg"):
-            return -confidence
-        elif label.startswith("pos"):
-            return confidence
-        else:
-            return 0.0
+        sentiment_scores = sentiment_analyzer.polarity_scores(text)
+        # VADER returns compound score between -1 and 1, which is perfect for our use case
+        return sentiment_scores['compound']
     except Exception:
         return 0.0
 
 
 def remove_duplicates(data_list: List[Dict]) -> List[Dict]:
     """
-    Remove duplicate reviews based on text content.
-    
     Args:
         data_list: List of review dictionaries
         
     Returns:
         List with duplicates removed
     """
-    seen_texts = set()
-    unique_data = []
+    if not data_list:
+        return []
     
-    for item in data_list:
-        text_for_comparison = re.sub(r'\s+', ' ', item['text'].lower().strip())
-        
-        if text_for_comparison not in seen_texts:
-            seen_texts.add(text_for_comparison)
-            unique_data.append(item)
+    df = pd.DataFrame(data_list)
+    df_unique = df.drop_duplicates()
     
-    return unique_data
+    return df_unique.to_dict('records')
 
 
 def create_dataset(
+    output_path: str = "data_v2",
     train_samples_per_category: int = 10000,
     val_samples_per_category: int = 10000,
     test_samples_per_category: int = 1000,
@@ -117,21 +107,16 @@ def create_dataset(
     print(f"Max tokens: {max_tokens}")
     
     print("\nCreating directory structure...")
-    os.makedirs('data/train', exist_ok=True)
-    os.makedirs('data/val', exist_ok=True)
-    os.makedirs('data/test', exist_ok=True)
-    print("✓ Created directories: data/train, data/val, data/test")
+    os.makedirs(f'{output_path}/train', exist_ok=True)
+    os.makedirs(f'{output_path}/val', exist_ok=True)
+    os.makedirs(f'{output_path}/test', exist_ok=True)
+    print(f"✓ Created directories: {output_path}/train, {output_path}/val, {output_path}/test")
     
     print("\nLoading BART-base tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained("facebook/bart-base")
     
-    print("Loading sentiment analysis pipeline...")
-    sentiment_pipeline = pipeline(
-        "sentiment-analysis", 
-        model="spacesedan/sentiment-analysis-longformer",
-        tokenizer="spacesedan/sentiment-analysis-longformer",
-        device=-1  # Use CPU
-    )
+    print("Loading VADER sentiment analyzer...")
+    sentiment_analyzer = SentimentIntensityAnalyzer()
     
     loader = AmazonReviews2023Loader()
     
@@ -233,7 +218,7 @@ def create_dataset(
                     
                     if token_count <= max_tokens:
                         # Calculate sentiment score for the review text
-                        sentiment_score = compute_sentiment_score(text, sentiment_pipeline)
+                        sentiment_score = compute_sentiment_score(text, sentiment_analyzer)
                         
                         # Calculate rating mismatch (normalized rating vs sentiment)
                         rating_normalized = (rating_float - 3.0) / 2.0  # Convert 1-5 to -1 to 1 scale
@@ -273,15 +258,15 @@ def create_dataset(
                 category_name = category.replace(' ', '_').replace('&', 'and').lower()
                 
                 train_df = pd.DataFrame(train_data)
-                train_filename = f"data/train/{category_name}_train.csv"
+                train_filename = f"{output_path}/train/{category_name}_train.csv"
                 train_df.to_csv(train_filename, index=False, encoding='utf-8')
                 
                 val_df = pd.DataFrame(val_data)
-                val_filename = f"data/val/{category_name}_val.csv"
+                val_filename = f"{output_path}/val/{category_name}_val.csv"
                 val_df.to_csv(val_filename, index=False, encoding='utf-8')
                 
                 test_df = pd.DataFrame(test_data)
-                test_filename = f"data/test/{category_name}_test.csv"
+                test_filename = f"{output_path}/test/{category_name}_test.csv"
                 test_df.to_csv(test_filename, index=False, encoding='utf-8')
     
                 all_train_data.extend(train_data)
@@ -321,11 +306,11 @@ def create_dataset(
     print(f"Test: Removed {original_test_count - len(all_test_data)} cross-category duplicate reviews")
         
     train_df = pd.DataFrame(all_train_data)
-    train_df.to_csv("data/train/combined_train_dataset.csv", index=False, encoding='utf-8')
+    train_df.to_csv(f"{output_path}/train/combined_train_dataset.csv", index=False, encoding='utf-8')
     val_df = pd.DataFrame(all_val_data)
-    val_df.to_csv("data/val/combined_val_dataset.csv", index=False, encoding='utf-8')        
+    val_df.to_csv(f"{output_path}/val/combined_val_dataset.csv", index=False, encoding='utf-8')        
     test_df = pd.DataFrame(all_test_data)
-    test_df.to_csv("data/test/combined_test_dataset.csv", index=False, encoding='utf-8')
+    test_df.to_csv(f"{output_path}/test/combined_test_dataset.csv", index=False, encoding='utf-8')
 
     if len(all_train_data) > 0:
         print(f"\n=== Train Dataset Statistics ===")
@@ -346,44 +331,68 @@ def create_dataset(
 
 def main():
     """Main function to create the dataset"""
-
-    train_samples_per_category = 10000
-    test_samples_per_category = 10000
-    val_samples_per_category = 1000
-    max_tokens = 1024
     
-    if len(sys.argv) > 1:
-        try:
-            train_samples_per_category = int(sys.argv[1])
-        except ValueError:
-            print("Error: train_samples_per_category must be an integer")
-            return
+    parser = argparse.ArgumentParser(
+        description="Create train, validation, and test datasets from Amazon reviews",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     
-    if len(sys.argv) > 2:
-        try:
-            val_samples_per_category = int(sys.argv[2])
-        except ValueError:
-            print("Error: val_samples_per_category must be an integer")
-            return
+    parser.add_argument(
+        "--output-path", 
+        "-o",
+        type=str, 
+        default="data_v2",
+        help="Output directory path for saving datasets"
+    )
     
-    if len(sys.argv) > 3:
-        try:
-            test_samples_per_category = int(sys.argv[3])
-        except ValueError:
-            print("Error: test_samples_per_category must be an integer")
-            return
+    parser.add_argument(
+        "--train-samples", 
+        "-t",
+        type=int, 
+        default=10000,
+        help="Number of training samples per category"
+    )
+    
+    parser.add_argument(
+        "--val-samples", 
+        "-v",
+        type=int, 
+        default=1000,
+        help="Number of validation samples per category"
+    )
+    
+    parser.add_argument(
+        "--test-samples", 
+        "-s",
+        type=int, 
+        default=10000,
+        help="Number of test samples per category"
+    )
+    
+    parser.add_argument(
+        "--max-tokens", 
+        "-m",
+        type=int, 
+        default=1024,
+        help="Maximum token length for reviews (inclusive)"
+    )
+    
+    args = parser.parse_args()
     
     print(f"Creating datasets with:")
-    print(f"  Train: {train_samples_per_category} samples per category")
-    print(f"  Validation: {val_samples_per_category} samples per category")
-    print(f"  Test: {test_samples_per_category} samples per category")
+    print(f"  Output path: {args.output_path}")
+    print(f"  Train: {args.train_samples} samples per category")
+    print(f"  Validation: {args.val_samples} samples per category")
+    print(f"  Test: {args.test_samples} samples per category")
+    print(f"  Max tokens: {args.max_tokens}")
     
     try:
         success = create_dataset(
-            train_samples_per_category=train_samples_per_category,
-            val_samples_per_category=val_samples_per_category,
-            test_samples_per_category=test_samples_per_category,
-            max_tokens=max_tokens,
+            output_path=args.output_path,
+            train_samples_per_category=args.train_samples,
+            val_samples_per_category=args.val_samples,
+            test_samples_per_category=args.test_samples,
+            max_tokens=args.max_tokens,
         )
         
         if success:
