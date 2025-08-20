@@ -482,34 +482,29 @@ def create_dataset(
             category_data = remove_duplicates(category_data)
             print(f"Removed {original_category_count - len(category_data)} duplicates from {category}")
             
-            if len(category_data) >= total_samples_per_category:
-                train_data = category_data[:train_samples_per_category]
-                val_data = category_data[train_samples_per_category:train_samples_per_category + val_samples_per_category]
-                test_data = category_data[train_samples_per_category + val_samples_per_category:train_samples_per_category + val_samples_per_category + test_samples_per_category]
-                
-                category_name = category.replace(' ', '_').replace('&', 'and').lower()
-                
-                train_df = pd.DataFrame(train_data)
-                train_csv = f"{output_path}/train/{category_name}_train.csv"
-                train_parquet = f"{output_path}/train/{category_name}_train.parquet"
-                train_df.to_csv(train_csv, index=False, encoding='utf-8')
-                train_df.to_parquet(train_parquet, index=False)
-                
-                val_df = pd.DataFrame(val_data)
-                val_csv = f"{output_path}/val/{category_name}_val.csv"
-                val_parquet = f"{output_path}/val/{category_name}_val.parquet"
-                val_df.to_csv(val_csv, index=False, encoding='utf-8')
-                val_df.to_parquet(val_parquet, index=False)
-                
-                test_df = pd.DataFrame(test_data)
-                test_csv = f"{output_path}/test/{category_name}_test.csv"
-                test_parquet = f"{output_path}/test/{category_name}_test.parquet"
-                test_df.to_csv(test_csv, index=False, encoding='utf-8')
-    
-                print(f"✓ Created {category} dataset files")
-            else:
-                print(f"Not enough samples after deduplication for {category} (got {len(category_data)}, needed {total_samples_per_category})")
-            
+            train_data = category_data[:train_samples_per_category]
+            val_data = category_data[train_samples_per_category:train_samples_per_category + val_samples_per_category]
+            test_data = category_data[train_samples_per_category + val_samples_per_category:train_samples_per_category + val_samples_per_category + test_samples_per_category]
+
+            category_name = category.replace(' ', '_').replace('&', 'and').lower()
+
+            train_df = pd.DataFrame(train_data)
+            train_csv = f"{output_path}/train/{category_name}_train.csv"
+            train_parquet = f"{output_path}/train/{category_name}_train.parquet"
+            train_df.to_csv(train_csv, index=False, encoding='utf-8')
+            train_df.to_parquet(train_parquet, index=False)
+
+            val_df = pd.DataFrame(val_data)
+            val_csv = f"{output_path}/val/{category_name}_val.csv"
+            val_parquet = f"{output_path}/val/{category_name}_val.parquet"
+            val_df.to_csv(val_csv, index=False, encoding='utf-8')
+            val_df.to_parquet(val_parquet, index=False)
+
+            test_df = pd.DataFrame(test_data)
+            test_csv = f"{output_path}/test/{category_name}_test.csv"
+            test_parquet = f"{output_path}/test/{category_name}_test.parquet"
+            test_df.to_csv(test_csv, index=False, encoding='utf-8')
+
             categories_processed += 1
             del category_data
             if 'train_data' in locals():
