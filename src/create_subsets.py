@@ -1,15 +1,14 @@
 import pandas as pd
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
-from typing import List, Dict, Any
-import sys
+from typing import List, Dict
 import os
 import re
 import argparse
 from amazon_reviews_loader import AmazonReviews2023Loader
 import gc
 from tqdm import tqdm
-
+import glob
 
 def clean_text(text: str) -> str:
     """
@@ -38,36 +37,61 @@ def clean_text(text: str) -> str:
 
 def compute_sentiment_score(text: str, tokenizer, model, device) -> float:
     """
-    Compute sentiment score
+    Compute sentiment score for a single text (kept for compatibility)
+    """
+    scores = compute_sentiment_scores_batch([text], tokenizer, model, device)
+    return scores[0] if scores and scores[0] is not None else None
+
+
+def compute_sentiment_scores_batch(texts: List[str], tokenizer, model, device, batch_size: int = 32) -> List[float]:
+    """
+    Compute sentiment scores for multiple texts in batches (much faster)
     
     Args:
-        text: Review text to analyze
+        texts: List of review texts to analyze
         tokenizer: Pre-loaded tokenizer
         model: Pre-loaded sentiment model
         device: Device to run inference on (CPU/GPU)
+        batch_size: Number of texts to process at once
         
     Returns:
         Sentiment score between -1 (negative) and 1 (positive), or None if computation failed
     """
+    if not texts:
+        return []
+    
+    sentiment_scores = []
+    
     try:
-        inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512, padding=True)
-        inputs = {k: v.to(device) for k, v in inputs.items()}
-        
-        with torch.no_grad():
-            outputs = model(**inputs)
-            probabilities = torch.softmax(outputs.logits, dim=1)
-        
-        negative_score = probabilities[0][0].item()
-        positive_score = probabilities[0][1].item()
-        
-        # Convert to -1 to 1 scale
-        sentiment_score = positive_score - negative_score
-        
-        return sentiment_score
-        
+        for i in range(0, len(texts), batch_size):
+            batch_texts = texts[i:i + batch_size]
+            
+            # Tokenize the batch
+            inputs = tokenizer(
+                batch_texts, 
+                return_tensors="pt", 
+                truncation=True, 
+                max_length=512, 
+                padding=True
+            )
+            inputs = {k: v.to(device) for k, v in inputs.items()}
+            
+            with torch.no_grad():
+                outputs = model(**inputs)
+                probabilities = torch.softmax(outputs.logits, dim=1)
+            
+            # Process each result in the batch
+            for j in range(len(batch_texts)):
+                negative_score = probabilities[j][0].item()
+                positive_score = probabilities[j][1].item()
+                sentiment_score = positive_score - negative_score
+                sentiment_scores.append(sentiment_score)
+            
     except Exception as e:
-        print(f"Error computing sentiment: {e}")
-        return None
+        print(f"Error computing sentiment batch: {e}")
+        sentiment_scores = [None] * len(texts)
+        
+    return sentiment_scores
 
 
 def remove_duplicates(data_list: List[Dict]) -> List[Dict]:
@@ -85,6 +109,119 @@ def remove_duplicates(data_list: List[Dict]) -> List[Dict]:
     df_unique = df.drop_duplicates()
     
     return df_unique.to_dict('records')
+
+
+def combine_csv_files(input_path: str, output_filename: str = "combined.csv", use_parquet: bool = True, save_both_formats: bool = False) -> bool:
+    """
+    Combine all CSV files in a given directory into a single CSV file.
+    
+    Args:
+        input_path: Path to directory containing CSV files to combine
+        output_filename: Name of the output combined CSV file
+        
+    Returns:
+        bool: True if combination successful, False otherwise
+    """
+    print(f"=== CSV File Combiner ===")
+    print(f"Input directory: {input_path}")
+    print(f"Output filename: {output_filename}")
+    
+    # Check if input path exists
+    if not os.path.exists(input_path):
+        print(f"Error: Input path '{input_path}' does not exist.")
+        return False
+    
+    if not os.path.isdir(input_path):
+        print(f"Error: Input path '{input_path}' is not a directory.")
+        return False
+    
+    # Find files to combine (prefer parquet if available)
+    if use_parquet:
+        file_pattern = os.path.join(input_path, "*.parquet")
+        files_to_combine = glob.glob(file_pattern)
+        file_type = "parquet"
+        if not files_to_combine:
+            print("No parquet files found, falling back to CSV files...")
+            file_pattern = os.path.join(input_path, "*.csv")
+            files_to_combine = glob.glob(file_pattern)
+            file_type = "csv"
+    else:
+        file_pattern = os.path.join(input_path, "*.csv")
+        files_to_combine = glob.glob(file_pattern)
+        file_type = "csv"
+    
+    if not files_to_combine:
+        print(f"No {file_type} files found in directory '{input_path}'.")
+        return False
+    
+    print(f"Found {len(files_to_combine)} {file_type} files:")
+    for file_path in files_to_combine:
+        print(f"  - {os.path.basename(file_path)}")
+    
+    combined_data = []
+    total_rows = 0
+    
+    print(f"\nCombining {file_type} files...")
+    for file_path in tqdm(files_to_combine, desc="Processing files"):
+        try:
+            # Read file (CSV or Parquet)
+            if file_type == "parquet":
+                df = pd.read_parquet(file_path)
+            else:
+                df = pd.read_csv(file_path, encoding='utf-8')
+            
+            # Add source file information
+            df['source_file'] = os.path.basename(file_path)
+            
+            combined_data.append(df)
+            total_rows += len(df)
+            
+            print(f"  ✓ {os.path.basename(file_path)}: {len(df)} rows")
+            
+        except Exception as e:
+            print(f"  ✗ Error reading {os.path.basename(file_path)}: {e}")
+            continue
+    
+    if not combined_data:
+        print(f"No valid {file_type} files could be read.")
+        return False
+    
+    # Combine all dataframes
+    print(f"\nCombining {len(combined_data)} dataframes...")
+    combined_df = pd.concat(combined_data, ignore_index=True)
+    
+    print(f"Total rows before deduplication: {total_rows}")
+    print(f"Total rows after concatenation: {len(combined_df)}")
+    
+    # Remove duplicates if any
+    original_count = len(combined_df)
+    combined_df = combined_df.drop_duplicates()
+    duplicates_removed = original_count - len(combined_df)
+    
+    if duplicates_removed > 0:
+        print(f"Removed {duplicates_removed} duplicate rows")
+    
+    # Create output path
+    output_path = os.path.join(input_path, output_filename)
+    
+    # Save combined CSV
+    try:
+        combined_df.to_csv(output_path, index=False, encoding='utf-8')
+        print(f"\n✓ Combined CSV saved to: {output_path}")
+        print(f"Final dataset size: {len(combined_df)} rows, {len(combined_df.columns)} columns")
+        
+        # Show some basic statistics
+        if 'category' in combined_df.columns:
+            print(f"\nCategory distribution:")
+            category_counts = combined_df['category'].value_counts()
+            for category, count in category_counts.items():
+                print(f"  {category}: {count}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"Error saving combined CSV: {e}")
+        return False
 
 
 def create_dataset(
@@ -155,9 +292,6 @@ def create_dataset(
             return False
         categories_to_process = selected_categories
     
-    all_train_data = []
-    all_val_data = []
-    all_test_data = []
     categories_processed = 0
     
     total_samples_per_category = train_samples_per_category + val_samples_per_category + test_samples_per_category
@@ -169,18 +303,77 @@ def create_dataset(
         
         try:
 
-            batch_size = int(total_samples_per_category * 2)  # Load 1.2x to account for filtering and duplicates
+            load_size = int(total_samples_per_category * 2)  # Load 2x to account for filtering and duplicates
             dataset = loader.load_reviews(
                 category=category,
                 streaming=True,
-                num_samples=batch_size
+                num_samples=load_size
             )
             
             category_data = []            
             target_with_buffer = int(total_samples_per_category * 1.5)
             
+            # Batch processing variables
+            batch_size = 100  # Process 100 reviews at a time
+            pending_reviews = []
+            
             review_pbar = tqdm(total=target_with_buffer, desc=f"Processing {category} reviews",
                               unit="review")
+            
+            def process_review_batch(reviews_batch):
+                """Process a batch of reviews for better performance"""
+                if not reviews_batch:
+                    return []
+                
+                valid_reviews = []
+                texts_for_sentiment = []
+                
+                # First pass: validation and tokenization
+                for review_info in reviews_batch:
+                    review, review_data, token_count = review_info
+                    
+                    if token_count <= max_tokens:
+                        valid_reviews.append((review, review_data, token_count))
+                        texts_for_sentiment.append(review['cleaned_text'])
+                
+                if not valid_reviews:
+                    return []
+                
+                # Batch sentiment computation
+                sentiment_scores = compute_sentiment_scores_batch(
+                    texts_for_sentiment, sentiment_tokenizer, sentiment_model, device
+                )
+                
+                # Second pass: create final data
+                batch_results = []
+                for i, (review, review_data, token_count) in enumerate(valid_reviews):
+                    sentiment_score = sentiment_scores[i] if i < len(sentiment_scores) else None
+                    
+                    if sentiment_score is None:
+                        continue
+                    
+                    rating_normalized = (review['rating'] - 3.0) / 2.0
+                    rating_mismatch = abs(sentiment_score - rating_normalized)
+                    
+                    batch_results.append({
+                        'review_data': review_data,
+                        'rating': review['rating'],
+                        'token_count': token_count,
+                        'category': category,
+                        'title': review['title'],
+                        'text': review['cleaned_text'],
+                        'has_images': review['has_images'],
+                        'asin': review['asin'],
+                        'parent_asin': review['parent_asin'],
+                        'user_id': review['user_id'],
+                        'timestamp': review['timestamp'],
+                        'verified_purchase': review['verified_purchase'],
+                        'helpful_vote': review['helpful_vote'],
+                        'sentiment': sentiment_score,
+                        'rating_mismatch': rating_mismatch
+                    })
+                
+                return batch_results
             
             for review in dataset:
                 if len(category_data) >= target_with_buffer:
@@ -249,38 +442,41 @@ def create_dataset(
                     tokens = tokenizer.encode(review_data, add_special_tokens=True)
                     token_count = len(tokens)
                     
-                    if token_count <= max_tokens:
-                        sentiment_score = compute_sentiment_score(text, sentiment_tokenizer, sentiment_model, device)
-                        
-                        if sentiment_score is None:
-                            continue
-                        
-                        
-                        rating_normalized = (rating_float - 3.0) / 2.0  # Convert 1-5 to -1 to 1 scale
-                        rating_mismatch = abs(sentiment_score - rating_normalized)
-                        
-                        category_data.append({
-                            'review_data': review_data,
-                            'rating': rating_float,
-                            'token_count': token_count,
-                            'category': category,
+                    # Store review for batch processing
+                    pending_reviews.append((
+                        {
                             'title': title,
-                            'text': text,
+                            'cleaned_text': text,
+                            'rating': rating_float,
                             'has_images': has_images,
                             'asin': asin_str,
                             'parent_asin': parent_asin_str,
                             'user_id': user_id_str,
                             'timestamp': timestamp,
                             'verified_purchase': verified_purchase_bool,
-                            'helpful_vote': helpful_vote_int,
-                            'sentiment': sentiment_score,
-                            'rating_mismatch': rating_mismatch
-                        })
-                        review_pbar.update(1)
+                            'helpful_vote': helpful_vote_int
+                        },
+                        review_data,
+                        token_count
+                    ))
+                    
+                    # Process batch when it's full
+                    if len(pending_reviews) >= batch_size:
+                        batch_results = process_review_batch(pending_reviews)
+                        category_data.extend(batch_results)
+                        pending_reviews = []
+                        
+                        review_pbar.update(len(batch_results))
                         review_pbar.set_postfix(collected=len(category_data), target=target_with_buffer)
 
                 except Exception as e:
                     continue
+            
+            # Process remaining reviews in the last batch
+            if pending_reviews:
+                batch_results = process_review_batch(pending_reviews)
+                category_data.extend(batch_results)
+                review_pbar.update(len(batch_results))
             review_pbar.close()
                         
             print(f"Removing duplicates from {category} data...")
@@ -296,20 +492,23 @@ def create_dataset(
                 category_name = category.replace(' ', '_').replace('&', 'and').lower()
                 
                 train_df = pd.DataFrame(train_data)
-                train_filename = f"{output_path}/train/{category_name}_train.csv"
-                train_df.to_csv(train_filename, index=False, encoding='utf-8')
+                train_csv = f"{output_path}/train/{category_name}_train.csv"
+                train_parquet = f"{output_path}/train/{category_name}_train.parquet"
+                train_df.to_csv(train_csv, index=False, encoding='utf-8')
+                train_df.to_parquet(train_parquet, index=False)
                 
                 val_df = pd.DataFrame(val_data)
-                val_filename = f"{output_path}/val/{category_name}_val.csv"
-                val_df.to_csv(val_filename, index=False, encoding='utf-8')
+                val_csv = f"{output_path}/val/{category_name}_val.csv"
+                val_parquet = f"{output_path}/val/{category_name}_val.parquet"
+                val_df.to_csv(val_csv, index=False, encoding='utf-8')
+                val_df.to_parquet(val_parquet, index=False)
                 
                 test_df = pd.DataFrame(test_data)
-                test_filename = f"{output_path}/test/{category_name}_test.csv"
-                test_df.to_csv(test_filename, index=False, encoding='utf-8')
+                test_csv = f"{output_path}/test/{category_name}_test.csv"
+                test_parquet = f"{output_path}/test/{category_name}_test.parquet"
+                test_df.to_csv(test_csv, index=False, encoding='utf-8')
     
-                all_train_data.extend(train_data)
-                all_val_data.extend(val_data)
-                all_test_data.extend(test_data)
+                print(f"✓ Created {category} dataset files")
             else:
                 print(f"Not enough samples after deduplication for {category} (got {len(category_data)}, needed {total_samples_per_category})")
             
@@ -340,48 +539,10 @@ def create_dataset(
     
     print(f"\n=== Dataset Creation Summary ===")
     print(f"Categories processed: {categories_processed}/{len(categories_to_process)}")
-    print(f"Total train samples: {len(all_train_data)}")
-    print(f"Total validation samples: {len(all_val_data)}")
-    print(f"Total test samples: {len(all_test_data)}")
     
-    if len(all_train_data) == 0 and len(all_val_data) == 0 and len(all_test_data) == 0:
+    if categories_processed == 0:
         print("No data collected. Check your dataset access and try again.")
         return False
-    
-    print(f"\nRemoving cross-category duplicates from combined datasets...")
-    
-    original_train_count = len(all_train_data)
-    all_train_data = remove_duplicates(all_train_data)
-    print(f"Train: Removed {original_train_count - len(all_train_data)} cross-category duplicate reviews")
-    
-    original_val_count = len(all_val_data)
-    all_val_data = remove_duplicates(all_val_data)
-    print(f"Validation: Removed {original_val_count - len(all_val_data)} cross-category duplicate reviews")
-    
-    original_test_count = len(all_test_data)
-    all_test_data = remove_duplicates(all_test_data)
-    print(f"Test: Removed {original_test_count - len(all_test_data)} cross-category duplicate reviews")
-        
-    train_df = pd.DataFrame(all_train_data)
-    train_df.to_csv(f"{output_path}/train/combined_train_dataset.csv", index=False, encoding='utf-8')
-    val_df = pd.DataFrame(all_val_data)
-    val_df.to_csv(f"{output_path}/val/combined_val_dataset.csv", index=False, encoding='utf-8')        
-    test_df = pd.DataFrame(all_test_data)
-    test_df.to_csv(f"{output_path}/test/combined_test_dataset.csv", index=False, encoding='utf-8')
-
-    if len(all_train_data) > 0:
-        print(f"\n=== Train Dataset Statistics ===")
-        
-        print(f"\nRating distribution:")
-        rating_counts = train_df['rating'].value_counts().sort_index()
-        for rating, count in rating_counts.items():
-            print(f"  {rating}: {count}")
-        
-        print(f"\nToken length statistics:")
-        print(f"  Mean: {train_df['token_count'].mean():.1f}")
-        print(f"  Median: {train_df['token_count'].median():.1f}")
-        print(f"  Max: {train_df['token_count'].max()}")
-        print(f"  Min: {train_df['token_count'].min()}")
     
     return True
 
@@ -443,35 +604,82 @@ def main():
         help="Specific categories to process (space-separated). If not specified, processes all categories. Example: --categories Electronics Books"
     )
     
+    parser.add_argument(
+        "--combine", 
+        action="store_true",
+        help="Combine all CSV files in a directory instead of creating new datasets"
+    )
+    
+    parser.add_argument(
+        "--combine-input", 
+        type=str,
+        default=None,
+        help="Input directory path containing CSV files to combine (required when using --combine)"
+    )
+    
+    parser.add_argument(
+        "--combine-output", 
+        type=str,
+        default="combined.csv",
+        help="Output filename for combined CSV file (default: combined.csv)"
+    )
+    
     args = parser.parse_args()
     
-    print(f"Creating datasets with:")
-    print(f"  Output path: {args.output_path}")
-    print(f"  Train: {args.train_samples} samples per category")
-    print(f"  Validation: {args.val_samples} samples per category")
-    print(f"  Test: {args.test_samples} samples per category")
-    print(f"  Max tokens: {args.max_tokens}")
-    print(f"  Categories: {args.categories if args.categories else 'All available categories'}")
-
-    
-    try:
-        success = create_dataset(
-            output_path=args.output_path,
-            train_samples_per_category=args.train_samples,
-            val_samples_per_category=args.val_samples,
-            test_samples_per_category=args.test_samples,
-            max_tokens=args.max_tokens,
-            selected_categories=args.categories,
-        )
+    # Handle combine mode
+    if args.combine:
+        if not args.combine_input:
+            print("Error: --combine-input is required when using --combine mode")
+            return
         
-        if success:
-            print("\n Dataset creation completed successfully!")
-        else:
-            print("\n Dataset creation failed.")
+        print(f"Combine mode enabled:")
+        print(f"  Input directory: {args.combine_input}")
+        print(f"  Output filename: {args.combine_output}")
+        
+        try:
+            success = combine_csv_files(
+                input_path=args.combine_input,
+                output_filename=args.combine_output
+            )
             
-    except Exception as e:
-        print(f"\n Error during dataset creation: {e}")
-        raise
+            if success:
+                print("\n✓ CSV combination completed successfully!")
+            else:
+                print("\n✗ CSV combination failed.")
+                
+        except Exception as e:
+            print(f"\n✗ Error during CSV combination: {e}")
+            raise
+    
+    else:
+        # Normal dataset creation mode
+        print(f"Creating datasets with:")
+        print(f"  Output path: {args.output_path}")
+        print(f"  Train: {args.train_samples} samples per category")
+        print(f"  Validation: {args.val_samples} samples per category")
+        print(f"  Test: {args.test_samples} samples per category")
+        print(f"  Max tokens: {args.max_tokens}")
+        print(f"  Categories: {args.categories if args.categories else 'All available categories'}")
+
+        
+        try:
+            success = create_dataset(
+                output_path=args.output_path,
+                train_samples_per_category=args.train_samples,
+                val_samples_per_category=args.val_samples,
+                test_samples_per_category=args.test_samples,
+                max_tokens=args.max_tokens,
+                selected_categories=args.categories,
+            )
+            
+            if success:
+                print("\n✓ Dataset creation completed successfully!")
+            else:
+                print("\n✗ Dataset creation failed.")
+                
+        except Exception as e:
+            print(f"\n✗ Error during dataset creation: {e}")
+            raise
 
 
 if __name__ == "__main__":
