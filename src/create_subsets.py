@@ -231,6 +231,7 @@ def create_dataset(
     test_samples_per_category: int = 1000,
     max_tokens: int = 512,
     selected_categories: List[str] = None,
+    batch_size: int = None,
 ):
     """
     Create train, validation, and test datasets with specified parameters.
@@ -250,6 +251,7 @@ def create_dataset(
         test_samples_per_category: Number of test samples per category
         max_tokens: Maximum token length for reviews (inclusive)
         selected_categories: List of specific categories to process (None = all categories)
+        batch_size: Number of reviews to process in each batch (None = auto-detect based on RAM)
     Returns:
         bool: True if dataset creation successful, False otherwise
     """
@@ -312,8 +314,6 @@ def create_dataset(
             
             category_data = []            
 
-            # Batch processing variables
-            batch_size = 100  # Process 100 reviews at a time
             pending_reviews = []
             
             review_pbar = tqdm(total=load_size, desc=f"Processing {category} reviews",
@@ -603,6 +603,14 @@ def main():
     )
     
     parser.add_argument(
+        "--batch-size", 
+        "-b",
+        type=int,
+        default=1000,
+        help="Number of reviews to process in each batch for sentiment analysis. If not specified, auto-detects based on available RAM. Larger values are faster but use more memory."
+    )
+    
+    parser.add_argument(
         "--combine", 
         action="store_true",
         help="Combine all CSV files in a directory instead of creating new datasets"
@@ -650,13 +658,13 @@ def main():
             raise
     
     else:
-        # Normal dataset creation mode
         print(f"Creating datasets with:")
         print(f"  Output path: {args.output_path}")
         print(f"  Train: {args.train_samples} samples per category")
         print(f"  Validation: {args.val_samples} samples per category")
         print(f"  Test: {args.test_samples} samples per category")
         print(f"  Max tokens: {args.max_tokens}")
+        print(f"  Batch size: {args.batch_size}")
         print(f"  Categories: {args.categories if args.categories else 'All available categories'}")
 
         
@@ -668,6 +676,7 @@ def main():
                 test_samples_per_category=args.test_samples,
                 max_tokens=args.max_tokens,
                 selected_categories=args.categories,
+                batch_size=args.batch_size,
             )
             
             if success:
