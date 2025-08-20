@@ -4,3 +4,5 @@ src/__pycache__/*
 src/electronics_sample.json
 data
 my_data
+outputs/*
+

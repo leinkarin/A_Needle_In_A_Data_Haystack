@@ -1,6 +1,6 @@
 import pandas as pd
-from transformers import AutoTokenizer
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
 from typing import List, Dict, Any
 import sys
 import os
@@ -35,23 +35,38 @@ def clean_text(text: str) -> str:
     return text
 
 
-def compute_sentiment_score(text: str, sentiment_analyzer) -> float:
+def compute_sentiment_score(text: str, tokenizer, model, device) -> float:
     """
-    Compute sentiment score for a single text using VADER.
+    Compute sentiment score
     
     Args:
         text: Review text to analyze
-        sentiment_analyzer: Pre-loaded VADER sentiment analyzer
+        tokenizer: Pre-loaded tokenizer
+        model: Pre-loaded sentiment model
+        device: Device to run inference on (CPU/GPU)
         
     Returns:
-        Sentiment score between -1 (negative) and 1 (positive)
+        Sentiment score between -1 (negative) and 1 (positive), or None if computation failed
     """
     try:
-        sentiment_scores = sentiment_analyzer.polarity_scores(text)
-        # VADER returns compound score between -1 and 1, which is perfect for our use case
-        return sentiment_scores['compound']
-    except Exception:
-        return 0.0
+        inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512, padding=True)
+        inputs = {k: v.to(device) for k, v in inputs.items()}
+        
+        with torch.no_grad():
+            outputs = model(**inputs)
+            probabilities = torch.softmax(outputs.logits, dim=1)
+        
+        negative_score = probabilities[0][0].item()
+        positive_score = probabilities[0][1].item()
+        
+        # Convert to -1 to 1 scale
+        sentiment_score = positive_score - negative_score
+        
+        return sentiment_score
+        
+    except Exception as e:
+        print(f"Error computing sentiment: {e}")
+        return None
 
 
 def remove_duplicates(data_list: List[Dict]) -> List[Dict]:
@@ -76,7 +91,7 @@ def create_dataset(
     train_samples_per_category: int = 10000,
     val_samples_per_category: int = 10000,
     test_samples_per_category: int = 1000,
-    max_tokens: int = 1024,
+    max_tokens: int = 512,
 ):
     """
     Create train, validation, and test datasets with specified parameters.
@@ -115,8 +130,16 @@ def create_dataset(
     print("\nLoading BART-base tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained("facebook/bart-base")
     
-    print("Loading VADER sentiment analyzer...")
-    sentiment_analyzer = SentimentIntensityAnalyzer()
+    print("Loading DistilBERT SST-2 sentiment model...")
+    sentiment_tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased-finetuned-sst-2-english")
+    sentiment_model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased-finetuned-sst-2-english")
+    
+    # Set device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    sentiment_model.to(device)
+    sentiment_model.eval()
+    
+    print(f"Using device: {device}")
     
     loader = AmazonReviews2023Loader()
     
@@ -171,11 +194,10 @@ def create_dataset(
                     title = clean_text(str(raw_title))
                     text = clean_text(str(raw_text))
                     
-                    # Validate cleaned text is not empty
+    
                     if title == "" or text == "":
                         continue
                     
-                    # Validate rating is in correct range
                     try:
                         rating_float = float(rating)
                         if not (1.0 <= rating_float <= 5.0):
@@ -183,7 +205,6 @@ def create_dataset(
                     except (ValueError, TypeError):
                         continue
                     
-                    # Validate and convert other fields
                     try:
                         # Ensure verified_purchase is boolean
                         verified_purchase_bool = bool(verified_purchase)
@@ -193,11 +214,9 @@ def create_dataset(
                         if helpful_vote_int < 0:  # Negative helpful votes don't make sense
                             continue
                             
-                        # Ensure timestamp is valid (basic check)
                         if not timestamp or str(timestamp).strip() == "":
                             continue
                             
-                        # Ensure ASINs are valid strings
                         asin_str = str(asin).strip()
                         parent_asin_str = str(parent_asin).strip()
                         user_id_str = str(user_id).strip()
@@ -208,7 +227,6 @@ def create_dataset(
                     except (ValueError, TypeError):
                         continue
 
-                    # Handle images (can be None/empty, but convert to consistent boolean)
                     has_images = bool(images and len(images) > 0)
 
                     review_data = f"[CAT={category}] [TITLE={title}] {text}"
@@ -217,10 +235,12 @@ def create_dataset(
                     token_count = len(tokens)
                     
                     if token_count <= max_tokens:
-                        # Calculate sentiment score for the review text
-                        sentiment_score = compute_sentiment_score(text, sentiment_analyzer)
+                        sentiment_score = compute_sentiment_score(text, sentiment_tokenizer, sentiment_model, device)
                         
-                        # Calculate rating mismatch (normalized rating vs sentiment)
+                        if sentiment_score is None:
+                            continue
+                        
+                        
                         rating_normalized = (rating_float - 3.0) / 2.0  # Convert 1-5 to -1 to 1 scale
                         rating_mismatch = abs(sentiment_score - rating_normalized)
                         
@@ -373,7 +393,7 @@ def main():
         "--max-tokens", 
         "-m",
         type=int, 
-        default=1024,
+        default=512,
         help="Maximum token length for reviews (inclusive)"
     )
     
