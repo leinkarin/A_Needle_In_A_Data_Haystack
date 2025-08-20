@@ -303,7 +303,7 @@ def create_dataset(
         
         try:
 
-            load_size = int(total_samples_per_category * 2)  # Load 2x to account for filtering and duplicates
+            load_size = int(total_samples_per_category)
             dataset = loader.load_reviews(
                 category=category,
                 streaming=True,
@@ -311,13 +311,12 @@ def create_dataset(
             )
             
             category_data = []            
-            target_with_buffer = int(total_samples_per_category * 1.5)
-            
+
             # Batch processing variables
             batch_size = 100  # Process 100 reviews at a time
             pending_reviews = []
             
-            review_pbar = tqdm(total=target_with_buffer, desc=f"Processing {category} reviews",
+            review_pbar = tqdm(total=load_size, desc=f"Processing {category} reviews",
                               unit="review")
             
             def process_review_batch(reviews_batch):
@@ -376,11 +375,10 @@ def create_dataset(
                 return batch_results
             
             for review in dataset:
-                if len(category_data) >= target_with_buffer:
+                if len(category_data) >= load_size:
                     break
                     
                 try:
-                    # Extract all required fields first
                     raw_title = review.get('title')
                     raw_text = review.get('text')
                     rating = review.get('rating')
@@ -467,7 +465,7 @@ def create_dataset(
                         pending_reviews = []
                         
                         review_pbar.update(len(batch_results))
-                        review_pbar.set_postfix(collected=len(category_data), target=target_with_buffer)
+                        review_pbar.set_postfix(collected=len(category_data), target=load_size)
 
                 except Exception as e:
                     continue
