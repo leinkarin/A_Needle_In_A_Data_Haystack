@@ -166,6 +166,20 @@ print(f"Available review configs: {len(configs['raw_reviews'])}")
 - `requirements.txt`: Required dependencies
 - `README.md`: This documentation
 
+## Sentiment Analysis
+
+The dataset creation process includes sentiment analysis using the **DistilBERT SST-2** model (`distilbert-base-uncased-finetuned-sst-2-english`). This provides accurate sentiment scores for English text using a model specifically fine-tuned for sentiment analysis.
+
+### Features:
+- **Efficient Model**: Uses DistilBERT, a lighter and faster version of BERT
+- **Binary Classification**: Negative vs Positive sentiment detection
+- **Normalized Scores**: Converts to -1 to 1 scale for consistency
+- **GPU Acceleration**: Automatically uses CUDA if available
+
+### Token Limit:
+- Reviews are filtered to a maximum of **512 tokens** (reduced from 1024)
+- This ensures faster processing and better memory efficiency
+
 ## Running the Examples
 
 ```bash

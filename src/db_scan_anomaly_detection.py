@@ -26,9 +26,6 @@ def load_data_from_csv(csv_path: str, max_rows: int = None) -> pd.DataFrame:
     return df
 
 
-# compute_sentiment_scores function removed - sentiment scores are now pre-calculated during data creation
-
-
 def build_features_data(df: pd.DataFrame) -> np.ndarray:
     """
     Build features from data    
@@ -40,7 +37,6 @@ def build_features_data(df: pd.DataFrame) -> np.ndarray:
     """
     print("Building features from pre-calculated data...")
     
-    # Use pre-calculated sentiment scores and rating mismatch from CSV
     features = {
         "rating": df['rating'].values,
         "helpful_votes": df['helpful_vote'].values,  
@@ -73,58 +69,61 @@ def build_features_data(df: pd.DataFrame) -> np.ndarray:
 def find_anomalies_with_dbscan(
     features_data: np.ndarray,
     eps: float = 0.5,
-    min_samples: int = 5,
-    n_anomalies: int = 100,
+    min_samples: int = 15,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Use DBSCAN to find anomalies using metadata features only.
-    
+
+    Args:
+        features_data: feature matrix
+        eps: DBSCAN epsilon parameter
+        min_samples: DBSCAN min_samples parameter
+
     Returns:
         - cluster_labels: cluster assignment for each point (-1 = noise/anomaly)
-        - distances: distance to nearest core point for each point
-        - anomaly_indices: indices of top anomalies
+        - anomaly_indices: sorted by distance from nearest core point
     """
     print(f"Running DBSCAN with eps={eps}, min_samples={min_samples}...")
     
-    # Run DBSCAN directly on the 7-dimensional feature space
     dbscan = DBSCAN(eps=eps, min_samples=min_samples)
     cluster_labels = dbscan.fit_predict(features_data)
     
-    # Calculate distances to nearest core point
-    distances = np.full(len(features_data), np.inf)
-    core_indices = np.where(cluster_labels != -1)[0]
-    
-    if len(core_indices) > 0:
-        core_points = features_data[core_indices]
-        for i in range(len(features_data)):
-            if cluster_labels[i] == -1:  # noise point
-                # Distance to nearest core point
-                dists_to_cores = np.linalg.norm(features_data[i] - core_points, axis=1)
-                distances[i] = np.min(dists_to_cores)
-            else:
-                # Distance to cluster center
-                cluster_center = np.mean(features_data[cluster_labels == cluster_labels[i]], axis=0)
-                distances[i] = np.linalg.norm(features_data[i] - cluster_center)
-    
-    # Get top anomalies (noise points first, then by distance)
+    core_indices = dbscan.core_sample_indices_
     noise_indices = np.where(cluster_labels == -1)[0]
-    other_indices = np.where(cluster_labels != -1)[0]
+
+    anomaly_indices = sort_noise_points_by_distance(features_data, noise_indices, core_indices)
+
+    return cluster_labels, anomaly_indices
+
+
+def sort_noise_points_by_distance(features_data: np.ndarray, noise_indices: np.ndarray, core_indices: np.ndarray) -> np.ndarray:
+    """
+    Sort noise points by their minimum distance to any core point.
     
-    # Sort noise points by distance, then other points by distance
-    if len(noise_indices) > 0:
-        noise_sorted = noise_indices[np.argsort(distances[noise_indices])]
-    else:
-        noise_sorted = np.array([])
+    Args:
+        features_data: Full feature matrix (n_samples, n_features)
+        noise_indices: Indices of noise points in the full dataset
+        core_indices: Indices of core points in the full dataset
+        
+    Returns:
+        Array of noise point indices sorted by minimum distance to core points
+        (most anomalous/remote points first)
+    """
+    if len(core_indices) == 0 or len(noise_indices) == 0:
+        return np.array([])
     
-    if len(other_indices) > 0:
-        other_sorted = other_indices[np.argsort(distances[other_indices])]
-    else:
-        other_sorted = np.array([])
+    core_points = features_data[core_indices]
+    noise_points = features_data[noise_indices]
     
-    # Combine: noise points first, then others
-    anomaly_indices = np.concatenate([noise_sorted, other_sorted])[:n_anomalies]
+    distances = np.zeros(len(noise_points))
     
-    return cluster_labels, distances, anomaly_indices
+    for i, noise_point in enumerate(noise_points):
+        dists_to_cores = np.linalg.norm(noise_point - core_points, axis=1)
+        distances[i] = np.min(dists_to_cores)
+    
+    sorted_indices = np.argsort(distances)[::-1]
+    
+    return noise_indices[sorted_indices]
 
 
 def main():
@@ -134,7 +133,6 @@ def main():
     parser.add_argument("--num-samples", type=int, default=20000, help="Max number of samples to process")
     parser.add_argument("--eps", type=float, default=0.6, help="DBSCAN epsilon parameter")
     parser.add_argument("--min-samples", type=int, default=15, help="DBSCAN min_samples parameter")
-    parser.add_argument("--n-anomalies", type=int, default=100, help="Number of anomalies to return")
     
     args = parser.parse_args()
     
@@ -145,43 +143,34 @@ def main():
     features_data = build_features_data(df)
     
     # Find anomalies
-    cluster_labels, distances, anomaly_indices = find_anomalies_with_dbscan(
+    cluster_labels, anomaly_indices = find_anomalies_with_dbscan(
         features_data, 
         eps=args.eps, 
         min_samples=args.min_samples,
-        n_anomalies=args.n_anomalies
     )
     
-    # Create results dataframe
     results = []
     for idx in anomaly_indices:
-        # Use pre-calculated sentiment score from CSV
-        sentiment_score = df.iloc[idx]['sentiment']
-        rating_mismatch = df.iloc[idx]['rating_mismatch']
-        
         results.append({
             "index": idx,
             "text": df.iloc[idx]['text'],
             "rating": df.iloc[idx]['rating'],
             "cluster": cluster_labels[idx],
-            "distance": distances[idx],
-            "sentiment": sentiment_score,
-            "rating_mismatch": rating_mismatch,
+            "sentiment": df.iloc[idx]['sentiment'],
+            "rating_mismatch": df.iloc[idx]['rating_mismatch'],
             "verified": df.iloc[idx]['verified_purchase'],
             "helpful_votes": df.iloc[idx]['helpful_vote'],
             "has_images": df.iloc[idx]['has_images'],
             "token_count": df.iloc[idx]['token_count'],
         })
     
-    # Save results
     results_df = pd.DataFrame(results)
     results_df.to_csv(args.out, index=False)
     print(f"Saved {len(results)} anomalies to {args.out}")
     
-    # Print summary
     n_noise = np.sum(cluster_labels == -1)
     n_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
-    print(f"\nDBSCAN Results (Metadata + Sentiment):")
+    print(f"\nDBSCAN Results:")
     print(f"  Total points: {len(cluster_labels)}")
     print(f"  Noise points (anomalies): {n_noise}")
     print(f"  Clusters found: {n_clusters}")
@@ -190,7 +179,7 @@ def main():
     print(f"\nTop 5 anomalies:")
     for i, row in results_df.head().iterrows():
         cluster_type = "NOISE" if row['cluster'] == -1 else f"Cluster {row['cluster']}"
-        print(f"{i+1}. Rating: {row['rating']}, {cluster_type}, Distance: {row['distance']:.3f}")
+        print(f"{i+1}. Rating: {row['rating']}, {cluster_type}")
         print(f"   Sentiment: {row['sentiment']:.3f}, Mismatch: {row['rating_mismatch']:.3f}")
         print(f"   Helpful: {row['helpful_votes']}, Verified: {row['verified']}, Images: {row['has_images']}")
         print(f"   Text: {row['text']}...")
