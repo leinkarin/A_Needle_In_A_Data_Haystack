@@ -5,9 +5,10 @@ from typing import List, Dict, Any
 import sys
 import os
 import re
-import numpy as np
 import argparse
 from amazon_reviews_loader import AmazonReviews2023Loader
+import gc
+from tqdm import tqdm
 
 
 def clean_text(text: str) -> str:
@@ -92,6 +93,7 @@ def create_dataset(
     val_samples_per_category: int = 10000,
     test_samples_per_category: int = 1000,
     max_tokens: int = 512,
+    selected_categories: List[str] = None,
 ):
     """
     Create train, validation, and test datasets with specified parameters.
@@ -110,7 +112,7 @@ def create_dataset(
         val_samples_per_category: Number of validation samples per category
         test_samples_per_category: Number of test samples per category
         max_tokens: Maximum token length for reviews (inclusive)
-        
+        selected_categories: List of specific categories to process (None = all categories)
     Returns:
         bool: True if dataset creation successful, False otherwise
     """
@@ -143,6 +145,16 @@ def create_dataset(
     
     loader = AmazonReviews2023Loader()
     
+    if selected_categories is None:
+        categories_to_process = loader.CATEGORIES
+    else:
+        invalid_categories = [cat for cat in selected_categories if cat not in loader.CATEGORIES]
+        if invalid_categories:
+            print(f"Error: Invalid categories specified: {invalid_categories}")
+            print(f"Available categories: {loader.CATEGORIES}")
+            return False
+        categories_to_process = selected_categories
+    
     all_train_data = []
     all_val_data = []
     all_test_data = []
@@ -150,14 +162,14 @@ def create_dataset(
     
     total_samples_per_category = train_samples_per_category + val_samples_per_category + test_samples_per_category
     
-    print(f"\nProcessing {len(loader.CATEGORIES)} categories...")
-    
-    for category in loader.CATEGORIES:
+    print(f"\nProcessing {len(categories_to_process)} categories: {categories_to_process}")
+
+    for category in categories_to_process:
         print(f"\n--- Processing category: {category} ---")
         
         try:
-    
-            batch_size = total_samples_per_category * 2  # Load 2x to account for filtering and duplicates
+
+            batch_size = int(total_samples_per_category * 2)  # Load 1.2x to account for filtering and duplicates
             dataset = loader.load_reviews(
                 category=category,
                 streaming=True,
@@ -166,6 +178,9 @@ def create_dataset(
             
             category_data = []            
             target_with_buffer = int(total_samples_per_category * 1.5)
+            
+            review_pbar = tqdm(total=target_with_buffer, desc=f"Processing {category} reviews",
+                              unit="review")
             
             for review in dataset:
                 if len(category_data) >= target_with_buffer:
@@ -261,9 +276,12 @@ def create_dataset(
                             'sentiment': sentiment_score,
                             'rating_mismatch': rating_mismatch
                         })
+                        review_pbar.update(1)
+                        review_pbar.set_postfix(collected=len(category_data), target=target_with_buffer)
 
                 except Exception as e:
                     continue
+            review_pbar.close()
                         
             print(f"Removing duplicates from {category} data...")
             original_category_count = len(category_data)
@@ -296,13 +314,32 @@ def create_dataset(
                 print(f"Not enough samples after deduplication for {category} (got {len(category_data)}, needed {total_samples_per_category})")
             
             categories_processed += 1
-            
+            del category_data
+            if 'train_data' in locals():
+                del train_data
+            if 'val_data' in locals():
+                del val_data
+            if 'test_data' in locals():
+                del test_data
+            if 'train_df' in locals():
+                del train_df
+            if 'val_df' in locals():
+                del val_df
+            if 'test_df' in locals():
+                del test_df
+            gc.collect()
+
         except Exception as e:
             print(f"Error processing category {category}: {e}")
+            if 'category_data' in locals():
+                del category_data
+            if 'review_pbar' in locals():
+                review_pbar.close()
+            gc.collect()
             continue
     
     print(f"\n=== Dataset Creation Summary ===")
-    print(f"Categories processed: {categories_processed}/{len(loader.CATEGORIES)}")
+    print(f"Categories processed: {categories_processed}/{len(categories_to_process)}")
     print(f"Total train samples: {len(all_train_data)}")
     print(f"Total validation samples: {len(all_val_data)}")
     print(f"Total test samples: {len(all_test_data)}")
@@ -397,6 +434,15 @@ def main():
         help="Maximum token length for reviews (inclusive)"
     )
     
+    parser.add_argument(
+        "--categories", 
+        "-c",
+        type=str,
+        nargs='+',
+        default=None,
+        help="Specific categories to process (space-separated). If not specified, processes all categories. Example: --categories Electronics Books"
+    )
+    
     args = parser.parse_args()
     
     print(f"Creating datasets with:")
@@ -405,6 +451,8 @@ def main():
     print(f"  Validation: {args.val_samples} samples per category")
     print(f"  Test: {args.test_samples} samples per category")
     print(f"  Max tokens: {args.max_tokens}")
+    print(f"  Categories: {args.categories if args.categories else 'All available categories'}")
+
     
     try:
         success = create_dataset(
@@ -413,6 +461,7 @@ def main():
             val_samples_per_category=args.val_samples,
             test_samples_per_category=args.test_samples,
             max_tokens=args.max_tokens,
+            selected_categories=args.categories,
         )
         
         if success:

@@ -36,7 +36,7 @@ class AmazonReviews2023Loader:
         Returns:
             Dataset object containing the reviews
         """
-        print(f"Loading Amazon Reviews 2023 dataset (split: {split})...")
+        print(f"Loading Amazon Reviews 2023 dataset...")
         
         if category and category not in self.CATEGORIES:
             print(f"Warning: Category '{category}' not in known categories.")
@@ -71,7 +71,7 @@ class AmazonReviews2023Loader:
             elif num_samples and not streaming:
                 dataset = dataset.select(range(min(num_samples, len(dataset))))
             
-            print(f"✓ Successfully loaded dataset (split: {split})")
+            print(f"✓ Successfully loaded dataset")
             if not streaming:
                 print(f"  Dataset size: {len(dataset)} samples")
             
