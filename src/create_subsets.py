@@ -94,6 +94,29 @@ def compute_sentiment_scores_batch(texts: List[str], tokenizer, model, device, b
     return sentiment_scores
 
 
+def remove_duplicates_review_data_rating(df):
+    """
+    Remove duplicate rows based on review_data and rating columns
+    
+    Args:
+        df (pd.DataFrame): Input dataframe
+        
+    Returns:
+        pd.DataFrame: Dataframe with duplicates removed
+    """
+    print("Checking for duplicates based on review_data and rating...")
+    initial_count = len(df)
+    
+    df_dedup = df.drop_duplicates(subset=['review_data', 'rating'], keep='first')
+    
+    final_count = len(df_dedup)
+    duplicates_removed = initial_count - final_count
+    
+    print(f"Removed {duplicates_removed} duplicate rows ({duplicates_removed/initial_count*100:.2f}%)")
+    print(f"Dataset size: {initial_count} -> {final_count} rows")
+    
+    return df_dedup
+
 def remove_duplicates(data_list: List[Dict]) -> List[Dict]:
     """
     Args:
@@ -269,7 +292,7 @@ def create_dataset(
     print(f"✓ Created directories: {output_path}/train, {output_path}/val, {output_path}/test")
     
     print("\nLoading BART-base tokenizer...")
-    tokenizer = AutoTokenizer.from_pretrained("facebook/bart-base")
+    tokenizer = AutoTokenizer.from_pretrained("microsoft/deberta-v3-base")
     
     print("Loading DistilBERT SST-2 sentiment model...")
     sentiment_tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased-finetuned-sst-2-english")
@@ -489,6 +512,7 @@ def create_dataset(
             category_name = category.replace(' ', '_').replace('&', 'and').lower()
 
             train_df = pd.DataFrame(train_data)
+            train_df = remove_duplicates_review_data_rating(train_df)
             train_csv = f"{output_path}/train/{category_name}_train.csv"
             train_parquet = f"{output_path}/train/{category_name}_train.parquet"
             train_df.to_csv(train_csv, index=False, encoding='utf-8')
