@@ -1,14 +1,10 @@
-"""
-TF-IDF Post-Hoc Analysis for DBSCAN Anomalies
-Use TF-IDF to understand WHY your anomalies are anomalous
-"""
-
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from collections import Counter
 import matplotlib.pyplot as plt
+import argparse
 import seaborn as sns
 
 class AnomalyTextAnalyzer:
@@ -20,12 +16,12 @@ class AnomalyTextAnalyzer:
         self.vectorizer = None
         self.feature_names = None
         
-    def analyze_anomaly_text(self, df, anomaly_indices, normal_indices=None):
+    def analyze_anomaly_text(self, full_df, anomaly_indices):
         """
         Analyze what makes anomalous reviews textually different
         
         Args:
-            df: Your full dataframe
+            full_df: Your full dataframe
             anomaly_indices: Indices of anomalies found by DBSCAN
             normal_indices: Sample of normal reviews for comparison (optional)
         """
@@ -33,25 +29,24 @@ class AnomalyTextAnalyzer:
         print("=" * 60)
         
         # Get anomaly texts
-        anomaly_texts = df.iloc[anomaly_indices]['text'].fillna('').tolist()
+        anomaly_texts = full_df.iloc[anomaly_indices]['text'].fillna('').tolist()
         
         # Get comparison texts (random sample of non-anomalies)
-        if normal_indices is None:
-            all_indices = set(df.index)
-            anomaly_set = set(anomaly_indices)
-            normal_pool = list(all_indices - anomaly_set)
-            normal_indices = np.random.choice(normal_pool, 
-                                            size=min(len(anomaly_indices) * 3, len(normal_pool)), 
-                                            replace=False)
-        
-        normal_texts = df.iloc[normal_indices]['text'].fillna('').tolist()
+        all_indices = set(full_df.index)
+        anomaly_set = set(anomaly_indices)
+        normal_pool = list(all_indices - anomaly_set)
+        normal_indices = np.random.choice(normal_pool, 
+                                        size=min(len(anomaly_indices) * 3, len(normal_pool)), 
+                                        replace=False)
+    
+        normal_texts = full_df.iloc[normal_indices]['text'].fillna('').tolist()
         
         print(f"📊 Comparing {len(anomaly_texts)} anomalies vs {len(normal_texts)} normal reviews")
         
         # Analyze differences
         self._compare_text_patterns(anomaly_texts, normal_texts)
         self._find_distinctive_words(anomaly_texts, normal_texts)
-        self._categorize_anomalies(df, anomaly_indices)
+        self._categorize_anomalies(full_df, anomaly_indices)
         
         return self
     
@@ -216,35 +211,37 @@ class AnomalyTextAnalyzer:
                 print(f"{i:2d}. '{word}': {score:.4f}")
 
 
-
 # STANDALONE USAGE EXAMPLE
-def demo_posthoc_analysis():
-    """
-    Demo showing how to use this independently
-    """
+def analyze():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--anomaly_csv', type=str, required=True)
+    parser.add_argument('--original_csv', type=str, required=True)
+    args = parser.parse_args()
     
-    # Load your results CSV from DBSCAN (now contains all original columns)
-    results_df = pd.read_csv('electronics_val_anomalies.csv')
-    
-    # Since the CSV now contains all original data, we can analyze directly
-    print("🔍 Analyzing anomalies from CSV with all original columns...")
-    
-    # Get anomaly indices from your results
-    anomaly_indices = results_df['original_index'].tolist()
-    
-    # Create a DataFrame with the anomaly data (all columns are already there)
-    anomaly_df = results_df.copy()
-    
-    # Run post-hoc analysis using the anomaly data directly
-    analyzer = AnomalyTextAnalyzer()
-    analyzer.analyze_anomaly_text(anomaly_df, range(len(anomaly_df)))
-    
-    print("\n✅ Analysis complete! The CSV now contains all original columns,")
-    print("   so we can analyze the anomalies directly without needing the original dataset.")
+    try:
+        # Load data
+        anomaly_df = pd.read_csv(args.anomaly_csv)
+        original_df = pd.read_csv(args.original_csv)
+        
+        # Get anomaly indices
+        if 'original_index' not in anomaly_df.columns:
+            raise ValueError("Anomaly CSV must contain 'original_index' column")
+        anomaly_indices = anomaly_df['original_index'].tolist()
+        
+        # Run analysis
+        analyzer = AnomalyTextAnalyzer()
+        analyzer.analyze_anomaly_text(original_df, anomaly_indices)
+        
+    except FileNotFoundError as e:
+        print(f"❌ Error: Could not find file - {e}")
+    except ValueError as e:
+        print(f"❌ Error: {e}")
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+
 
 if __name__ == "__main__":
     print("TF-IDF POST-HOC ANALYSIS TOOL")
     print("=" * 40)
     
-    # Run the actual analysis on your anomaly results
-    demo_posthoc_analysis()
+    analyze()
