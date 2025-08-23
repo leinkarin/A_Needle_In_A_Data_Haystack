@@ -32,7 +32,6 @@ def suggest_eps_from_kdist(k_dist: np.ndarray) -> float:
             return float(k_dist[kl.knee])
     except Exception:
         pass
-    # Fallback: 95th percentile often works reasonably in practice
     return float(np.percentile(k_dist, 95))
 
 
@@ -71,7 +70,6 @@ def analyze_eps_parameters(features_data: np.ndarray, min_samples: int = 15, plo
     print(f"Creating k-distance plot...")
     save_k_distance_plot(k_dist, plot_path)
     
-    # Print some statistics
     print(f"\nK-distance statistics:")
     print(f"  Min distance: {k_dist[0]:.4f}")
     print(f"  Max distance: {k_dist[-1]:.4f}")
@@ -96,13 +94,11 @@ def main():
     
     args = parser.parse_args()
     
-    # Load data
+    
     df = load_data_from_csv(args.csv_path)
     
-    # Build features
     features_data = build_features_data(df)
     
-    # Analyze eps parameters
     suggested_eps = analyze_eps_parameters(
         features_data, 
         min_samples=args.min_samples,
