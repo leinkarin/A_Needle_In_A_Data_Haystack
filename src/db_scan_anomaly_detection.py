@@ -77,37 +77,24 @@ def main():
     
     args = parser.parse_args()
     
-    # Load data
     df = load_data_from_csv(args.csv_path, max_rows=args.num_samples)
     
-    # Build features
     features_data = build_features_data(df)
     
-    # Find anomalies
     cluster_labels, anomaly_indices = find_anomalies_with_dbscan(
         features_data, 
         eps=args.eps, 
         min_samples=args.min_samples,
     )
     
-    results = []
-    for idx in anomaly_indices:
-        results.append({
-            "index": idx,
-            "text": df.iloc[idx]['text'],
-            "rating": df.iloc[idx]['rating'],
-            "cluster": cluster_labels[idx],
-            "sentiment": df.iloc[idx]['sentiment'],
-            "rating_mismatch": df.iloc[idx]['rating_mismatch'],
-            "verified": df.iloc[idx]['verified_purchase'],
-            "helpful_votes": df.iloc[idx]['helpful_vote'],
-            "has_images": df.iloc[idx]['has_images'],
-            "token_count": df.iloc[idx]['token_count'],
-        })
+    anomaly_df = df.iloc[anomaly_indices].copy()
     
-    results_df = pd.DataFrame(results)
+    anomaly_df['original_index'] = anomaly_indices
+    anomaly_df['cluster'] = cluster_labels[anomaly_indices]
+    
+    results_df = anomaly_df
     results_df.to_csv(args.out, index=False)
-    print(f"Saved {len(results)} anomalies to {args.out}")
+    print(f"Saved {len(anomaly_df)} anomalies to {args.out}")
     
     n_noise = np.sum(cluster_labels == -1)
     n_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
@@ -122,7 +109,7 @@ def main():
         cluster_type = "NOISE" if row['cluster'] == -1 else f"Cluster {row['cluster']}"
         print(f"{i+1}. Rating: {row['rating']}, {cluster_type}")
         print(f"   Sentiment: {row['sentiment']:.3f}, Mismatch: {row['rating_mismatch']:.3f}")
-        print(f"   Helpful: {row['helpful_votes']}, Verified: {row['verified']}, Images: {row['has_images']}")
+        print(f"   Helpful: {row['helpful_vote']}, Verified: {row['verified_purchase']}, Images: {row['has_images']}")
         print(f"   Text: {row['text']}...")
         print()
 
