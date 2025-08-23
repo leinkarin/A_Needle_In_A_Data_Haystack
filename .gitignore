@@ -6,4 +6,6 @@ data
 my_data
 outputs/*
 electronics_val_anomalies.csv
+.vscode/*
+*.png
 
