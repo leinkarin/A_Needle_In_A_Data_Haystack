@@ -51,6 +51,8 @@ def sort_noise_points_by_distance(features_data: np.ndarray, noise_indices: np.n
         Array of noise point indices sorted by minimum distance to core points
         (most anomalous/remote points first)
     """
+    
+    print(f"Sorting noise points by distance to core points...")
     noise_indices = np.asarray(noise_indices, dtype=int)
     core_indices = np.asarray(core_indices, dtype=int)
 
