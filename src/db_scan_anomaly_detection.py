@@ -71,7 +71,7 @@ def main():
     parser = argparse.ArgumentParser(description="Find anomalous Amazon reviews using metadata features with DBSCAN")
     parser.add_argument("--csv-path", required=True, help="Path to CSV file")
     parser.add_argument("--out", default="dbscan_anomalies.csv", help="Output CSV file")
-    parser.add_argument("--num-samples", type=int, default=20000, help="Max number of samples to process")
+    parser.add_argument("--num-samples", type=int, default=None, help="Max number of samples to process")
     parser.add_argument("--eps", type=float, default=0.6, help="DBSCAN epsilon parameter")
     parser.add_argument("--min-samples", type=int, default=15, help="DBSCAN min_samples parameter")
     
@@ -103,16 +103,6 @@ def main():
     print(f"  Noise points (anomalies): {n_noise}")
     print(f"  Clusters found: {n_clusters}")
     print(f"  Features used: rating, helpful_votes, verified_purchase, has_images, token_count, sentiment, rating_mismatch")
-    
-    print(f"\nTop 5 anomalies:")
-    for i, row in results_df.head().iterrows():
-        cluster_type = "NOISE" if row['cluster'] == -1 else f"Cluster {row['cluster']}"
-        print(f"{i+1}. Rating: {row['rating']}, {cluster_type}")
-        print(f"   Sentiment: {row['sentiment']:.3f}, Mismatch: {row['rating_mismatch']:.3f}")
-        print(f"   Helpful: {row['helpful_vote']}, Verified: {row['verified_purchase']}, Images: {row['has_images']}")
-        print(f"   Text: {row['text']}...")
-        print()
-
 
 if __name__ == "__main__":
     main()
