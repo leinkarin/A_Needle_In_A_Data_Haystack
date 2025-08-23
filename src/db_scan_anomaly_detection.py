@@ -72,12 +72,13 @@ def find_anomalies_with_dbscan(
         - cluster_labels: cluster assignment for each point (-1 = noise/anomaly)
         - anomaly_indices: sorted by distance from nearest core point
     """
-    sparse_distances = compute_sparse_neighborhoods(features_data, eps)
+    # sparse_distances = compute_sparse_neighborhoods(features_data, eps)
 
-    print(f"Running memory-optimized DBSCAN with eps={eps}, min_samples={min_samples}...")
+    #print(f"Running memory-optimized DBSCAN with eps={eps}, min_samples={min_samples}...")
     
-    dbscan = DBSCAN(eps=eps, min_samples=min_samples, metric='precomputed')
-    cluster_labels = dbscan.fit_predict(sparse_distances)
+    # dbscan = DBSCAN(eps=eps, min_samples=min_samples, metric='precomputed')
+    dbscan = DBSCAN(eps=eps, min_samples=min_samples)
+    cluster_labels = dbscan.fit_predict(features_data)
     
     core_indices = dbscan.core_sample_indices_
     noise_indices = np.where(cluster_labels == -1)[0]
