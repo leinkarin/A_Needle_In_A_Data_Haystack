@@ -4,55 +4,8 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 from sklearn.cluster import DBSCAN
-from sklearn.neighbors import NearestNeighbors, sort_graph_by_row_values
-from scipy.sparse import csr_matrix
+from sklearn.neighbors import radius_neighbors_graph
 from scan_utils import load_data_from_csv, build_features_data
-
-
-def find_anomalies_with_dbscan_original(
-    features_data: np.ndarray,
-    eps: float = 0.5,
-    min_samples: int = 15,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Original DBSCAN implementation for comparison purposes.
-    """
-    dbscan = DBSCAN(eps=eps, min_samples=min_samples)
-    cluster_labels = dbscan.fit_predict(features_data)
-    
-    core_indices = dbscan.core_sample_indices_
-    noise_indices = np.where(cluster_labels == -1)[0]
-
-    sorted_noise_indices, _scores = sort_noise_points_by_distance(
-        features_data, noise_indices, core_indices
-    )
-    return cluster_labels, sorted_noise_indices
-
-
-def compute_sparse_neighborhoods(features_data: np.ndarray, eps: float) -> csr_matrix:
-    """
-    Compute sparse neighborhood matrix using radius_neighbors_graph.
-    Only stores distances ≤ eps: O(n × avg_neighbors) space complexity.
-    
-    Args:
-        features_data: feature matrix (n_samples, n_features)
-        eps: radius for neighborhood queries
-        
-    Returns:
-        Sparse distance matrix where only neighbors within eps are stored,
-        sorted by row values for efficiency with DBSCAN
-    """
-    print(f"Computing sparse neighborhoods for {features_data.shape[0]} samples...")
-    
-    nn = NearestNeighbors(radius=eps, metric='euclidean')
-    nn.fit(features_data)
-    sparse_distances = nn.radius_neighbors_graph(features_data, radius=eps, mode='distance')
-    
-    # Sort the sparse matrix by row values to avoid efficiency warning
-    print("Sorting sparse matrix by row values...")
-    sparse_distances = sort_graph_by_row_values(sparse_distances, warn_when_not_sorted=False)
-    
-    return sparse_distances
 
 
 def find_anomalies_with_dbscan(
@@ -72,13 +25,16 @@ def find_anomalies_with_dbscan(
         - cluster_labels: cluster assignment for each point (-1 = noise/anomaly)
         - anomaly_indices: sorted by distance from nearest core point
     """
-    # sparse_distances = compute_sparse_neighborhoods(features_data, eps)
+    G   = radius_neighbors_graph(features_data, radius=eps, mode="distance", n_jobs=-1)
 
-    #print(f"Running memory-optimized DBSCAN with eps={eps}, min_samples={min_samples}...")
-    
-    # dbscan = DBSCAN(eps=eps, min_samples=min_samples, metric='precomputed')
-    dbscan = DBSCAN(eps=eps, min_samples=min_samples)
-    cluster_labels = dbscan.fit_predict(features_data)
+    print(f"Running DBSCAN with eps={eps}, min_samples={min_samples}...")
+    dbscan = DBSCAN(eps=eps,
+                min_samples=min_samples,
+                metric="precomputed")
+    cluster_labels = dbscan.fit_predict(G)
+
+    # dbscan = DBSCAN(eps=eps, min_samples=min_samples)
+    # cluster_labels = dbscan.fit_predict(features_data)
     
     core_indices = dbscan.core_sample_indices_
     noise_indices = np.where(cluster_labels == -1)[0]
