@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.neighbors import NearestNeighbors
 from kneed import KneeLocator
-from scan_utils import load_data_from_csv, build_features_data
+from scan_utils import load_data_from_csv, build_features_data, check_outliers_simple
 
 
 def compute_k_distance_curve(features_data: np.ndarray, k: int) -> np.ndarray:
@@ -35,15 +35,15 @@ def suggest_eps_from_kdist(k_dist: np.ndarray) -> float:
     return float(np.percentile(k_dist, 95))
 
 
-def save_k_distance_plot(k_dist: np.ndarray, out_path: str):
+def save_k_distance_plot(k_dist: np.ndarray, out_path: str, k: int):
     """
     Save the k-distance plot to out_path.
     """
     plt.figure(figsize=(8, 5))
     plt.plot(k_dist)
-    plt.title("k-distance graph (sorted)")
+    plt.title(f"k-distance graph (sorted) for k={k}")
     plt.xlabel("Points sorted by distance")
-    plt.ylabel("Distance to k-th nearest neighbor")
+    plt.ylabel(f"Distance to {k}-th nearest neighbor")
     plt.tight_layout()
     plt.savefig(out_path, dpi=150)
     plt.close()
@@ -68,9 +68,9 @@ def analyze_eps_parameters(features_data: np.ndarray, min_samples: int = 15, plo
     suggested_eps = suggest_eps_from_kdist(k_dist)
     
     print(f"Creating k-distance plot...")
-    save_k_distance_plot(k_dist, plot_path)
+    save_k_distance_plot(k_dist, plot_path, min_samples)
     
-    print(f"\nK-distance statistics:")
+    print(f"\nK-distance statistics for k={min_samples}:")
     print(f"  Min distance: {k_dist[0]:.4f}")
     print(f"  Max distance: {k_dist[-1]:.4f}")
     print(f"  25th percentile: {np.percentile(k_dist, 25):.4f}")
@@ -81,7 +81,7 @@ def analyze_eps_parameters(features_data: np.ndarray, min_samples: int = 15, plo
     print(f"  99th percentile: {np.percentile(k_dist, 99):.4f}")
     
     print(f"\nSuggested eps: {suggested_eps:.4f}")
-    print(f"K-distance plot saved to: {plot_path}")
+    print(f"K-distance plot saved to: {plot_path} for k={min_samples}")
     
     return suggested_eps
 
@@ -96,8 +96,12 @@ def main():
     
     
     df = load_data_from_csv(args.csv_path)
+    check_outliers_simple(df)
+
+    df_clean = df.copy()
+    df_clean['helpful_vote'] = df_clean['helpful_vote'].clip(upper=df_clean['helpful_vote'].quantile(0.99))
     
-    features_data = build_features_data(df)
+    features_data = build_features_data(df_clean)
     
     suggested_eps = analyze_eps_parameters(
         features_data, 

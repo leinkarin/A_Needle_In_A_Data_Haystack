@@ -60,3 +60,37 @@ def build_features_data(df: pd.DataFrame) -> np.ndarray:
     print(f"Features: rating, helpful_votes, verified_purchase, has_images, token_count, predicted_rating, rating_diff")
     
     return features_data
+
+
+def check_outliers_simple(df: pd.DataFrame):
+    """Simple check for extreme outliers that might be causing the k-distance spike."""
+    print("=== CHECKING FOR EXTREME OUTLIERS ===\n")
+    
+    # Check the features most likely to have extreme outliers
+    features_to_check = ['helpful_vote', 'token_count', 'rating_diff']
+    
+    for feature in features_to_check:
+        if feature not in df.columns:
+            print(f"Feature {feature} not found")
+            continue
+            
+        data = df[feature]
+        
+        print(f"{feature.upper()}:")
+        print(f"  Min: {data.min()}")
+        print(f"  Max: {data.max()}")
+        print(f"  95th percentile: {data.quantile(0.95):.2f}")
+        print(f"  99th percentile: {data.quantile(0.99):.2f}")
+        print(f"  99.9th percentile: {data.quantile(0.999):.2f}")
+        
+        # The smoking gun: ratio of max to 95th percentile
+        ratio = data.max() / (data.quantile(0.95) + 1e-8)
+        print(f"  Max/95th ratio: {ratio:.1f}x")
+        
+        if ratio > 10:
+            print(f"  🚨 PROBLEM: Extreme outliers detected!")
+            print(f"     Top 5 values: {sorted(data.nlargest(5).tolist(), reverse=True)}")
+        else:
+            print(f"  ✅ Outliers look reasonable")
+        print()
+
