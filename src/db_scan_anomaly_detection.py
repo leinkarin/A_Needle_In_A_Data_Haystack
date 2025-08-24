@@ -5,75 +5,84 @@ import numpy as np
 import pandas as pd
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import radius_neighbors_graph
+from tqdm import tqdm
 from scan_utils import load_data_from_csv, build_features_data
 
 
-def find_anomalies_with_dbscan(
-    features_data: np.ndarray,
-    eps: float = 0.5,
-    min_samples: int = 15,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Use DBSCAN to find anomalies using metadata features only.
+class DBScanAnomalyDetector:
+    def __init__(self,features_data: np.ndarray, eps: float = 0.5, min_samples: int = 15, batch_size: int = None):
+        self.eps = eps
+        self.min_samples = min_samples
+        self.batch_size = batch_size
+        self.features_data = features_data
 
-    Args:
-        features_data: feature matrix
-        eps: DBSCAN epsilon parameter
-        min_samples: DBSCAN min_samples parameter
+    def scan(self) -> Tuple[np.ndarray, np.ndarray]:
+        if self.batch_size is None:
+            return self._scan(self.features_data)
+        else:
+            all_labels = []
+            all_anomalies = []
+            total_batches = (len(self.features_data) + self.batch_size - 1) // self.batch_size
+            
+            with tqdm(total=total_batches, desc="Processing batches", unit="batch") as pbar:
+                for i in range(0, len(self.features_data), self.batch_size):
+                    batch = self.features_data[i:i+self.batch_size]
+                    batch_cluster_labels, batch_anomaly_indices = self._scan(batch)
+                    all_labels.append(batch_cluster_labels)
+                    if len(batch_anomaly_indices) > 0:
+                        all_anomalies.append(batch_anomaly_indices + i)
+                    pbar.update(1)
+            
+            self.cluster_labels = np.concatenate(all_labels)
+            self.anomaly_indices = np.concatenate(all_anomalies)
 
-    Returns:
-        - cluster_labels: cluster assignment for each point (-1 = noise/anomaly)
-        - anomaly_indices: sorted by distance from nearest core point
-    """
-    G   = radius_neighbors_graph(features_data, radius=eps, mode="distance", n_jobs=-1)
+        return self.cluster_labels, self.anomaly_indices
 
-    print(f"Running DBSCAN with eps={eps}, min_samples={min_samples}...")
-    dbscan = DBSCAN(eps=eps,
-                min_samples=min_samples,
-                metric="precomputed")
-    cluster_labels = dbscan.fit_predict(G)
-
-    # dbscan = DBSCAN(eps=eps, min_samples=min_samples)
-    # cluster_labels = dbscan.fit_predict(features_data)
-    
-    core_indices = dbscan.core_sample_indices_
-    noise_indices = np.where(cluster_labels == -1)[0]
-
-    sorted_noise_indices, _scores = sort_noise_points_by_distance(
-        features_data, noise_indices, core_indices
-    )
-    return cluster_labels, sorted_noise_indices
-
-
-def sort_noise_points_by_distance(features_data: np.ndarray, noise_indices: np.ndarray, core_indices: np.ndarray) -> np.ndarray:
-    """
-    Sort noise points by their minimum distance to any core point.
-    
-    Args:
-        features_data: Full feature matrix (n_samples, n_features)
-        noise_indices: Indices of noise points in the full dataset
-        core_indices: Indices of core points in the full dataset
+    def _scan(self, batch: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        dbscan = DBSCAN(eps=self.eps, min_samples=self.min_samples, 
+                        algorithm='kd_tree', n_jobs=1)
+        cluster_labels = dbscan.fit_predict(batch)
         
-    Returns:
-        Array of noise point indices sorted by minimum distance to core points
-        (most anomalous/remote points first)
-    """
-    
-    print(f"Sorting noise points by distance to core points...")
-    noise_indices = np.asarray(noise_indices, dtype=int)
-    core_indices = np.asarray(core_indices, dtype=int)
+        core_indices = dbscan.core_sample_indices_.copy()
+        noise_indices = np.where(cluster_labels == -1)[0]
 
-    if noise_indices.size == 0 or core_indices.size == 0:
-        return noise_indices, np.array([], dtype=float)
+        sorted_noise_indices, _ = self._sort_noise_points_by_distance(
+            batch, noise_indices, core_indices
+        )
+        
+        del dbscan, core_indices, noise_indices
+        
+        return cluster_labels, sorted_noise_indices
 
-    core_points = features_data[core_indices]
-    noise_points = features_data[noise_indices]
+    def _sort_noise_points_by_distance(self, batch: np.ndarray, noise_indices: np.ndarray, core_indices: np.ndarray) -> np.ndarray:
+        """
+        Sort noise points by their minimum distance to any core point.
+        
+        Args:
+            batch: Batch of features data
+            noise_indices: Indices of noise points in the batch
+            core_indices: Indices of core points in the batch
 
-    dists = np.linalg.norm(noise_points[:, None, :] - core_points[None, :, :], axis=2)
-    min_dists = dists.min(axis=1)
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: Sorted noise indices and their minimum distances to core points
+        """
 
-    order = np.argsort(min_dists)[::-1]  
-    return noise_indices[order], min_dists[order]
+        noise_indices = np.asarray(noise_indices, dtype=int)
+        core_indices = np.asarray(core_indices, dtype=int)
+
+        if noise_indices.size == 0 or core_indices.size == 0:
+            return noise_indices, np.array([], dtype=float)
+
+        core_points = batch[core_indices]
+        noise_points = batch[noise_indices]
+
+        dists = np.linalg.norm(noise_points[:, None, :] - core_points[None, :, :], axis=2)
+        min_dists = dists.min(axis=1)
+
+        order = np.argsort(min_dists)[::-1]  
+
+        del dists, core_points, noise_points
+        return noise_indices[order], min_dists[order]
 
 
 def main():
@@ -83,6 +92,7 @@ def main():
     parser.add_argument("--num-samples", type=int, default=None, help="Max number of samples to process")
     parser.add_argument("--eps", type=float, default=0.6, help="DBSCAN epsilon parameter")
     parser.add_argument("--min-samples", type=int, default=15, help="DBSCAN min_samples parameter")
+    parser.add_argument("--batch-size", type=int, default=None, help="Batch size for memory optimization")
 
     
     args = parser.parse_args()
@@ -90,12 +100,9 @@ def main():
     df = load_data_from_csv(args.csv_path, max_rows=args.num_samples)
     
     features_data = build_features_data(df)
+    detector = DBScanAnomalyDetector(features_data, eps=args.eps, min_samples=args.min_samples, batch_size=args.batch_size)
     
-    cluster_labels, anomaly_indices = find_anomalies_with_dbscan(
-        features_data, 
-        eps=args.eps, 
-        min_samples=args.min_samples,
-    )
+    cluster_labels, anomaly_indices = detector.scan()
     
     anomaly_df = df.iloc[anomaly_indices].copy()
     
