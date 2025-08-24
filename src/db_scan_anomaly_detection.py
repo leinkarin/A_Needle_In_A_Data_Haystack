@@ -79,7 +79,7 @@ class DBScanAnomalyDetector:
             batch, noise_indices, core_indices
         )
 
-        del dbscan, core_indices, noise_indices, cluster_labels
+        del dbscan, core_indices, noise_indices
         gc.collect()
 
         return cluster_labels, sorted_noise_indices
