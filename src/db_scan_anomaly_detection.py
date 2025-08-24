@@ -7,6 +7,8 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import radius_neighbors_graph
 from tqdm import tqdm
 from scan_utils import load_data_from_csv, build_features_data
+import psutil, os
+import gc
 
 
 class DBScanAnomalyDetector:
@@ -38,20 +40,48 @@ class DBScanAnomalyDetector:
 
         return self.cluster_labels, self.anomaly_indices
 
+    # def _scan(self, batch: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    #     dbscan = DBSCAN(eps=self.eps, min_samples=self.min_samples)
+    #     cluster_labels = dbscan.fit_predict(batch)
+        
+    #     core_indices = dbscan.core_sample_indices_.copy()
+    #     noise_indices = np.where(cluster_labels == -1)[0]
+
+    #     sorted_noise_indices, _ = self._sort_noise_points_by_distance(
+    #         batch, noise_indices, core_indices
+    #     )
+        
+    #     del dbscan, core_indices, noise_indices
+        
+    #     return cluster_labels, sorted_noise_indices
+
     def _scan(self, batch: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        dbscan = DBSCAN(eps=self.eps, min_samples=self.min_samples, 
-                        algorithm='kd_tree', n_jobs=1)
+        
+        process = psutil.Process(os.getpid())
+        
+        print(f"Batch input size: {batch.nbytes / 1024**2:.1f}MB")
+        mem_start = process.memory_info().rss / 1024**3
+        
+        dbscan = DBSCAN(eps=self.eps, min_samples=self.min_samples)
+        
+        mem_after_create = process.memory_info().rss / 1024**3
+        print(f"After DBSCAN creation: +{mem_after_create-mem_start:.1f}GB")
+        
         cluster_labels = dbscan.fit_predict(batch)
         
+        mem_after_fit = process.memory_info().rss / 1024**3
+        print(f"After fit_predict: +{mem_after_fit-mem_after_create:.1f}GB")
+
         core_indices = dbscan.core_sample_indices_.copy()
         noise_indices = np.where(cluster_labels == -1)[0]
 
         sorted_noise_indices, _ = self._sort_noise_points_by_distance(
             batch, noise_indices, core_indices
         )
-        
-        del dbscan, core_indices, noise_indices
-        
+
+        del dbscan, core_indices, noise_indices, cluster_labels
+        gc.collect()
+
         return cluster_labels, sorted_noise_indices
 
     def _sort_noise_points_by_distance(self, batch: np.ndarray, noise_indices: np.ndarray, core_indices: np.ndarray) -> np.ndarray:
@@ -82,6 +112,8 @@ class DBScanAnomalyDetector:
         order = np.argsort(min_dists)[::-1]  
 
         del dists, core_points, noise_points
+        gc.collect()
+
         return noise_indices[order], min_dists[order]
 
 
