@@ -151,7 +151,7 @@ def main():
     print(f"  Total points: {len(cluster_labels)}")
     print(f"  Noise points (anomalies): {n_noise}")
     print(f"  Clusters found: {n_clusters}")
-    print(f"  Features used: rating, helpful_votes, verified_purchase, has_images, token_count, sentiment, rating_mismatch")
+    print(f"  Features used: rating, helpful_votes, verified_purchase, has_images, token_count, predicted_rating, rating_diff")
 
 if __name__ == "__main__":
     main()

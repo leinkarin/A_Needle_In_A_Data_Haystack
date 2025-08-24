@@ -26,7 +26,7 @@ def build_features_data(df: pd.DataFrame) -> np.ndarray:
     """
     Build features from data    
     Args:
-        df: DataFrame with review data (must include 'sentiment' and 'rating_mismatch' columns)
+        df: DataFrame with review data (must include 'predicted_rating' and 'rating_diff' columns)
         
     Returns:
         Feature array for clustering
@@ -39,8 +39,8 @@ def build_features_data(df: pd.DataFrame) -> np.ndarray:
         "verified_purchase": df['verified_purchase'].astype(int).values,
         "has_images": df['has_images'].astype(int).values,
         "token_count": df['token_count'].values,
-        "sentiment": df['sentiment'].values,  
-        "rating_mismatch": df['rating_mismatch'].values
+        "predicted_rating": df['predicted_rating'].values,  
+        "rating_diff": df['rating_diff'].values
     }
     
     feature_matrix = np.column_stack([
@@ -49,14 +49,14 @@ def build_features_data(df: pd.DataFrame) -> np.ndarray:
         features["verified_purchase"],
         features["has_images"],
         features["token_count"],
-        features["sentiment"],
-        features["rating_mismatch"]
+        features["predicted_rating"],
+        features["rating_diff"]
     ])
     
     scaler = StandardScaler()
     features_data = scaler.fit_transform(feature_matrix)
     
     print(f"Created features of shape: {features_data.shape}")
-    print(f"Features: rating, helpful_votes, verified_purchase, has_images, token_count, sentiment, rating_mismatch")
+    print(f"Features: rating, helpful_votes, verified_purchase, has_images, token_count, predicted_rating, rating_diff")
     
     return features_data
