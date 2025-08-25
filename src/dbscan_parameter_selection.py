@@ -138,7 +138,7 @@ def extract_category_from_path(csv_path: str) -> str:
 def main():
     parser = argparse.ArgumentParser(description="Analyze and suggest optimal eps parameter for DBSCAN")
     parser.add_argument("--csv-path", required=True, help="Path to CSV file")
-    parser.add_argument("--min-samples", type=int, default=15, help="DBSCAN min_samples parameter")
+    parser.add_argument("--min-samples", type=int, default=16, help="DBSCAN min_samples parameter")
     parser.add_argument("--plot", default="k_distance_plot.png", help="Output path for k-distance plot")
     
     args = parser.parse_args()
@@ -152,6 +152,7 @@ def main():
 
     df_clean = df.copy()
     df_clean['helpful_vote'] = df_clean['helpful_vote'].clip(upper=df_clean['helpful_vote'].quantile(0.99))
+    df_clean['reviewer_review_count'] = df_clean['reviewer_review_count'].clip(upper=df_clean['reviewer_review_count'].quantile(0.99))
     
     features_data = build_features_data(df_clean)
     
