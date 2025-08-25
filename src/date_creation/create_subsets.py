@@ -29,64 +29,6 @@ def clean_text(text: str) -> str:
     
     return text
 
-
-def compute_sentiment_score(text: str, tokenizer, model, device) -> float:
-    """
-    Compute sentiment score for a single text (kept for compatibility)
-    """
-    scores = compute_sentiment_scores_batch([text], tokenizer, model, device)
-    return scores[0] if scores and scores[0] is not None else None
-
-
-def compute_sentiment_scores_batch(texts: List[str], tokenizer, model, device, batch_size: int = 32) -> List[float]:
-    """
-    Compute sentiment scores for multiple texts in batches (much faster)
-    
-    Args:
-        texts: List of review texts to analyze
-        tokenizer: Pre-loaded tokenizer
-        model: Pre-loaded sentiment model
-        device: Device to run inference on (CPU/GPU)
-        batch_size: Number of texts to process at once
-        
-    Returns:
-        Sentiment score between -1 (negative) and 1 (positive), or None if computation failed
-    """
-    if not texts:
-        return []
-    
-    sentiment_scores = []
-    
-    try:
-        for i in range(0, len(texts), batch_size):
-            batch_texts = texts[i:i + batch_size]
-            
-            inputs = tokenizer(
-                batch_texts, 
-                return_tensors="pt", 
-                truncation=True, 
-                max_length=512, 
-                padding=True
-            )
-            inputs = {k: v.to(device) for k, v in inputs.items()}
-            
-            with torch.no_grad():
-                outputs = model(**inputs)
-                probabilities = torch.softmax(outputs.logits, dim=1)
-            
-            for j in range(len(batch_texts)):
-                negative_score = probabilities[j][0].item()
-                positive_score = probabilities[j][1].item()
-                sentiment_score = positive_score - negative_score
-                sentiment_scores.append(sentiment_score)
-            
-    except Exception as e:
-        print(f"Error computing sentiment batch: {e}")
-        sentiment_scores = [None] * len(texts)
-        
-    return sentiment_scores
-
-
 def remove_duplicates_review_data_rating(df):
     initial_count = len(df)
     df_dedup = df.drop_duplicates(subset=['review_data', 'rating'], keep='first')
@@ -232,14 +174,6 @@ def create_dataset(
     print("\nLoading BART-base tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained("microsoft/deberta-v3-base")
     
-    print("Loading DistilBERT SST-2 sentiment model...")
-    sentiment_tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased-finetuned-sst-2-english")
-    sentiment_model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased-finetuned-sst-2-english")
-    
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    sentiment_model.to(device)
-    sentiment_model.eval()
-    
     loader = AmazonReviews2023Loader()
     
     if selected_categories is None:
@@ -278,31 +212,20 @@ def create_dataset(
                     return []
                 
                 valid_reviews = []
-                texts_for_sentiment = []
 
                 for review_info in reviews_batch:
                     review, review_data, token_count = review_info
                     
                     if token_count <= max_tokens:
                         valid_reviews.append((review, review_data, token_count))
-                        texts_for_sentiment.append(review['cleaned_text'])
                 
                 if not valid_reviews:
                     return []
                 
-                sentiment_scores = compute_sentiment_scores_batch(
-                    texts_for_sentiment, sentiment_tokenizer, sentiment_model, device
-                )
                 
                 batch_results = []
                 for i, (review, review_data, token_count) in enumerate(valid_reviews):
-                    sentiment_score = sentiment_scores[i] if i < len(sentiment_scores) else None
                     
-                    if sentiment_score is None:
-                        continue
-                    
-                    rating_normalized = (review['rating'] - 3.0) / 2.0
-                    rating_mismatch = abs(sentiment_score - rating_normalized)
                     
                     batch_results.append({
                         'review_data': review_data,
@@ -318,8 +241,6 @@ def create_dataset(
                         'timestamp': review['timestamp'],
                         'verified_purchase': review['verified_purchase'],
                         'helpful_vote': review['helpful_vote'],
-                        'sentiment': sentiment_score,
-                        'rating_mismatch': rating_mismatch
                     })
                 
                 return batch_results
