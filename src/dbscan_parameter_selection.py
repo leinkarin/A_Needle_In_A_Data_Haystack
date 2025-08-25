@@ -21,18 +21,20 @@ def compute_k_distance_curve(features_data: np.ndarray, k: int) -> np.ndarray:
 
 
 def suggest_eps_from_kdist(k_dist: np.ndarray) -> float:
-    """
-    Suggest eps using the elbow (knee) if possible; otherwise fall back to a robust percentile.
-    """
     try:
-        
         x = np.arange(len(k_dist))
         kl = KneeLocator(x, k_dist, curve="convex", direction="increasing")
         if kl.knee is not None:
+            print(f"Knee found at index {kl.knee}, eps = {k_dist[kl.knee]:.4f}")
             return float(k_dist[kl.knee])
-    except Exception:
-        pass
-    return float(np.percentile(k_dist, 95))
+        else:
+            print("No knee detected by KneeLocator")
+    except Exception as e:
+        print(f"KneeLocator failed: {e}")
+    
+    percentile_eps = float(np.percentile(k_dist, 95))
+    print(f"Falling back to 95th percentile: {percentile_eps:.4f}")
+    return percentile_eps
 
 
 def save_k_distance_plot(k_dist: np.ndarray, out_path: str, k: int):
@@ -93,7 +95,6 @@ def main():
     parser.add_argument("--plot", default="k_distance_plot.png", help="Output path for k-distance plot")
     
     args = parser.parse_args()
-    
     
     df = load_data_from_csv(args.csv_path)
     check_outliers_simple(df)

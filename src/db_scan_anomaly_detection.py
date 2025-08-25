@@ -142,8 +142,9 @@ def main():
     anomaly_df['cluster'] = cluster_labels[anomaly_indices]
     
     results_df = anomaly_df
-    results_df.to_csv(args.out, index=False)
-    print(f"Saved {len(anomaly_df)} anomalies to {args.out}")
+    path_to_save = args.out + f"_eps_{args.eps}_min_samples_{args.min_samples}_batch_size_{args.batch_size}"
+    results_df.to_csv(path_to_save, index=False)
+    print(f"Saved {len(anomaly_df)} anomalies to {path_to_save}")
     
     n_noise = np.sum(cluster_labels == -1)
     n_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
