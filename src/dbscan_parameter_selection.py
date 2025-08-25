@@ -27,6 +27,7 @@ def suggest_eps_from_kdist(k_dist: np.ndarray) -> float:
         kl = KneeLocator(x, k_dist, curve="convex", direction="increasing")
         if kl.knee is not None:
             print(f"Knee found at index {kl.knee}, eps = {k_dist[kl.knee]:.4f}")
+            print(f"Knee found at index {kl.knee}, eps = {k_dist[kl.knee]:.4f}")
             return float(k_dist[kl.knee])
         else:
             print("No knee detected by KneeLocator")
@@ -35,7 +36,8 @@ def suggest_eps_from_kdist(k_dist: np.ndarray) -> float:
     
     percentile_eps = float(np.percentile(k_dist, 95))
     print(f"Falling back to 95th percentile: {percentile_eps:.4f}")
-    return percentile_eps
+    return percentile_eps   
+
 
 
 def save_k_distance_plot(k_dist: np.ndarray, out_path: str, k: int, category: str = None):
