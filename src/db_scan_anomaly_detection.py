@@ -142,7 +142,7 @@ def main():
     anomaly_df['cluster'] = cluster_labels[anomaly_indices]
     
     results_df = anomaly_df
-    path_to_save = args.out + f"_eps_{args.eps}_min_samples_{args.min_samples}_batch_size_{args.batch_size}"
+    path_to_save = args.out + f"_eps_{args.eps}_min_samples_{args.min_samples}_batch_size_{args.batch_size}.csv"
     results_df.to_csv(path_to_save, index=False)
     print(f"Saved {len(anomaly_df)} anomalies to {path_to_save}")
     
