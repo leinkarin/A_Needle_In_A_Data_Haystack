@@ -9,4 +9,6 @@ my_data
 
 .vscode/*
 script.py
+output/*
 
+*png

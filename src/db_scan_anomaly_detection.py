@@ -123,7 +123,7 @@ def main():
     parser.add_argument("--out", default="dbscan_anomalies.csv", help="Output CSV file")
     parser.add_argument("--num-samples", type=int, default=None, help="Max number of samples to process")
     parser.add_argument("--eps", type=float, default=0.6, help="DBSCAN epsilon parameter")
-    parser.add_argument("--min-samples", type=int, default=15, help="DBSCAN min_samples parameter")
+    parser.add_argument("--min-samples", type=int, default=16, help="DBSCAN min_samples parameter")
     parser.add_argument("--batch-size", type=int, default=None, help="Batch size for memory optimization")
 
     
