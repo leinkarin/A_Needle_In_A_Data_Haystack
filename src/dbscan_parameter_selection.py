@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from sklearn.neighbors import NearestNeighbors
-from kneed import KneeLocator
 from scan_utils import load_data_from_csv, build_features_data, check_outliers_simple
 
 
