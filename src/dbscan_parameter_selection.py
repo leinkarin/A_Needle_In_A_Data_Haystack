@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from sklearn.neighbors import NearestNeighbors
-from kneed import KneeLocator
 from scan_utils import load_data_from_csv, build_features_data, check_outliers_simple
 
 
@@ -18,24 +17,7 @@ def compute_k_distance_curve(features_data: np.ndarray, k: int) -> np.ndarray:
     nbrs.fit(features_data)
     distances, _ = nbrs.kneighbors(features_data)
     k_dist = np.sort(distances[:, -1])
-    return k_dist
-
-
-def suggest_eps_from_kdist(k_dist: np.ndarray) -> float:
-    try:
-        x = np.arange(len(k_dist))
-        kl = KneeLocator(x, k_dist, curve="convex", direction="increasing")
-        if kl.knee is not None:
-            print(f"Knee found at index {kl.knee}, eps = {k_dist[kl.knee]:.4f}")
-            return float(k_dist[kl.knee])
-        else:
-            print("No knee detected by KneeLocator")
-    except Exception as e:
-        print(f"KneeLocator failed: {e}")
-    
-    percentile_eps = float(np.percentile(k_dist, 95))
-    print(f"Falling back to 95th percentile: {percentile_eps:.4f}")
-    return percentile_eps
+    return k_dist   
 
 
 def save_k_distance_plot(k_dist: np.ndarray, out_path: str, k: int, category: str = None):
@@ -72,22 +54,17 @@ def save_k_distance_plot(k_dist: np.ndarray, out_path: str, k: int, category: st
 
 def analyze_eps_parameters(features_data: np.ndarray, min_samples: int = 15, plot_path: str = "k_distance_plot.png", category: str = None):
     """
-    Analyze and suggest optimal eps parameter for DBSCAN.
+    Plot the k-distance curve so we could choose the eps parameter.
     
     Args:
         features_data: Feature matrix for clustering
         min_samples: min_samples parameter for DBSCAN (default: 15)
         plot_path: Path to save the k-distance plot
         category: Category name to include in plot title (optional)
-        
-    Returns:
-        Suggested eps value
     """
     print(f"Computing k-distance curve with k={min_samples}...")
     k_dist = compute_k_distance_curve(features_data, min_samples)
     
-    print(f"Suggesting eps using elbow method...")
-    suggested_eps = suggest_eps_from_kdist(k_dist)
     
     print(f"Creating k-distance plot...")
     save_k_distance_plot(k_dist, plot_path, min_samples, category)
@@ -102,11 +79,7 @@ def analyze_eps_parameters(features_data: np.ndarray, min_samples: int = 15, plo
     print(f"  95th percentile: {np.percentile(k_dist, 95):.4f}")
     print(f"  99th percentile: {np.percentile(k_dist, 99):.4f}")
     
-    print(f"\nSuggested eps: {suggested_eps:.4f}")
     print(f"K-distance plot saved to: {plot_path} for k={min_samples}")
-    
-    return suggested_eps
-
 
 def extract_category_from_path(csv_path: str) -> str:
     """
@@ -156,18 +129,12 @@ def main():
     
     features_data = build_features_data(df_clean)
     
-    suggested_eps = analyze_eps_parameters(
+    analyze_eps_parameters(
         features_data, 
         min_samples=args.min_samples,
         plot_path=args.plot,
         category=category
     )
-    
-    print(f"\n=== DBSCAN Parameter Selection Results ===")
-    print(f"Suggested eps: {suggested_eps:.4f}")
-    print(f"Min samples: {args.min_samples}")
-    print(f"\nYou can now use these parameters in your DBSCAN analysis:")
-    print(f"  --eps {suggested_eps:.4f} --min-samples {args.min_samples}")
 
 
 if __name__ == "__main__":
