@@ -1,11 +1,11 @@
 *.idea/*
 
 src/__pycache__/*
+src/data_creation/__pycache__/*
 src/electronics_sample.json
 data
 my_data
-outputs/*
-electronics_val_anomalies.csv
+
 
 .vscode/*
 script.py
