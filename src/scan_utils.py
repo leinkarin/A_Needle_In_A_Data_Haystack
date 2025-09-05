@@ -7,7 +7,6 @@ from sklearn.preprocessing import StandardScaler
 def load_data_from_csv(csv_path: str, max_rows: int = None) -> pd.DataFrame:
     """
     Load data directly from CSV file.
-    Removes rows with missing values.
     """
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"CSV file not found: {csv_path}")
@@ -25,7 +24,7 @@ def load_data_from_csv(csv_path: str, max_rows: int = None) -> pd.DataFrame:
 
 def build_features_data(df: pd.DataFrame) -> np.ndarray:
     """
-    Build features from data    
+    Build features from data for malicious intent detection.
     Args:
         df: DataFrame with review data
         
@@ -35,22 +34,18 @@ def build_features_data(df: pd.DataFrame) -> np.ndarray:
     print("Building features from data...")
     
     features = {
-        "rating": df['rating'].values,
         "helpful_votes": df['helpful_vote'].values,  
         "verified_purchase": df['verified_purchase'].astype(int).values,
         "has_images": df['has_images'].astype(int).values,
-        "predicted_rating": df['predicted_rating'].values,  
         "rating_diff": df['rating_diff'].values,
         "reviewer_review_count": df['reviewer_review_count'].values,
         "rating_vs_product_avg_abs": df['rating_vs_product_avg_abs'].values
     }
     
     feature_matrix = np.column_stack([
-        features["rating"],
         features["helpful_votes"], 
         features["verified_purchase"],
         features["has_images"],
-        features["predicted_rating"],
         features["rating_diff"],
         features["reviewer_review_count"],
         features["rating_vs_product_avg_abs"]
@@ -60,7 +55,7 @@ def build_features_data(df: pd.DataFrame) -> np.ndarray:
     features_data = scaler.fit_transform(feature_matrix)
     
     print(f"Created features of shape: {features_data.shape}")
-    print(f"Features: rating, helpful_votes, verified_purchase, has_images, predicted_rating, rating_diff, reviewer_review_count, rating_vs_product_avg_abs")
+    print(f"Features: helpful_votes, verified_purchase, has_images, rating_diff, reviewer_review_count, rating_vs_product_avg_abs")
     
     return features_data
 
@@ -86,7 +81,6 @@ def check_outliers_simple(df: pd.DataFrame):
         print(f"  99th percentile: {data.quantile(0.99):.2f}")
         print(f"  99.9th percentile: {data.quantile(0.999):.2f}")
         
-        # The smoking gun: ratio of max to 95th percentile
         ratio = data.max() / (data.quantile(0.95) + 1e-8)
         print(f"  Max/95th ratio: {ratio:.1f}x")
         
