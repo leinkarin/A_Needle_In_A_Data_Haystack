@@ -1,13 +1,19 @@
-import numpy as np
-import pandas as pd
-from sklearn.metrics import silhouette_score, calinski_harabasz_score, davies_bouldin_score
 import argparse
+import json
 import os
 from typing import Dict
-import warnings
 
-warnings.filterwarnings('ignore')
-from visualize_db_scan_evaluation import create_anomaly_visualizations
+import pandas as pd
+
+from analysis.basic_analysis import run_basic_metrics_analysis
+from analysis.user_analysis_visualization import run_user_analysis
+from analysis.length_analysis_visualization import run_length_analysis
+from analysis.coordinated_attacks_visualization import run_coordinated_attacks_analysis
+
+FEATURE_COLUMNS = [
+    'helpful_vote', 'verified_purchase', 'has_images',
+    'rating_diff', 'reviewer_review_count', 'rating_vs_product_avg_abs'
+]
 
 
 class AnomalyDetectionEvaluator:
@@ -15,7 +21,7 @@ class AnomalyDetectionEvaluator:
     Comprehensive evaluation framework for DBSCAN anomaly detection results.
     """
 
-    def __init__(self, results_file: str, original_data_file: str = None):
+    def __init__(self, results_file: str, original_data_file: str, category: str):
         """
         Initialize the evaluator with DBSCAN results.
         
@@ -25,33 +31,42 @@ class AnomalyDetectionEvaluator:
         """
         self.results_file = results_file
         self.original_data_file = original_data_file
-        self.category = self._infer_category_from_filename(original_data_file)
+        self.category = category
         self.anomalies_df = None
         self.original_df = None
-        self.features_data = None
-
-        # Load data
         self._load_data()
 
-    def _infer_category_from_filename(self, filename: str) -> str:
-        """
-        Infer category from the original data filename.
-        
-        Args:
-            filename: Path to the original data file
-            
-        Returns:
-            Category name (first word of filename) or 'general' if no file provided
-        """
-        if not filename:
-            return 'general'
+    def _calculate_feature_statistics(self, feature: str) -> Dict:
+        """Calculate comprehensive statistics for a feature."""
+        if feature not in self.anomalies_df.columns:
+            return {}
 
-        basename = os.path.basename(filename)
-        name_without_ext = os.path.splitext(basename)[0]
-        first_word = name_without_ext.split('_')[0].split(' ')[0]
-        category = first_word.lower().strip()
-        print(f"Inferred category '{category}' from filename: {basename}")
-        return category
+        data = self.anomalies_df[feature]
+
+        if data.dtype == bool:
+            stats = {
+                'mean': data.mean(),
+                'std': data.std(),
+                'min': data.min(),
+                'max': data.max(),
+                'median': None,
+                'q25': None,
+                'q75': None,
+                'range': None
+            }
+        else:
+            stats = {
+                'mean': data.mean(),
+                'std': data.std(),
+                'min': data.min(),
+                'max': data.max(),
+                'median': data.median(),
+                'q25': data.quantile(0.25),
+                'q75': data.quantile(0.75)
+            }
+            stats['range'] = stats['max'] - stats['min']
+
+        return stats
 
     def _load_data(self):
         """Load anomaly results and original data."""
@@ -86,35 +101,23 @@ class AnomalyDetectionEvaluator:
             results['anomaly_rate'] = len(self.anomalies_df) / len(self.original_df)
             print(f"Anomaly Rate: {results['anomaly_rate']:.4f} ({results['anomaly_rate'] * 100:.2f}%)")
 
-        # Feature analysis - updated to reflect new feature set focused on deception detection
-        feature_columns = ['helpful_vote', 'verified_purchase', 'has_images',
-                           'rating_diff', 'reviewer_review_count',
-                           'rating_vs_product_avg_abs']
-
-        available_features = [col for col in feature_columns if col in self.anomalies_df.columns]
+        available_features = [col for col in FEATURE_COLUMNS if col in self.anomalies_df.columns]
 
         print(f"\nFeature Analysis for {len(available_features)} available features:")
         for feature in available_features:
-            if feature in self.anomalies_df.columns:
-                mean_val = self.anomalies_df[feature].mean()
-                std_val = self.anomalies_df[feature].std()
-                min_val = self.anomalies_df[feature].min()
-                max_val = self.anomalies_df[feature].max()
-
+            stats = self._calculate_feature_statistics(feature)
+            if stats:
                 print(f"  {feature}:")
-                print(f"    Mean: {mean_val:.4f}, Std: {std_val:.4f}")
-                print(f"    Range: [{min_val:.4f}, {max_val:.4f}]")
-
-                results[f'{feature}_mean'] = mean_val
-                results[f'{feature}_std'] = std_val
-
-                # Handle boolean columns differently - they don't have meaningful ranges
                 if self.anomalies_df[feature].dtype == bool:
-                    results[f'{feature}_range'] = None
+                    print(f"    Proportion True: {stats['mean']:.4f}, Std: {stats['std']:.4f}")
+                    print(f"    Boolean range: [{stats['min']}, {stats['max']}]")
                 else:
-                    results[f'{feature}_range'] = max_val - min_val
+                    print(f"    Mean: {stats['mean']:.4f}, Std: {stats['std']:.4f}")
+                    print(f"    Range: [{stats['min']:.4f}, {stats['max']:.4f}]")
 
-        # Category distribution (if available)
+                for stat_name, stat_value in stats.items():
+                    results[f'{feature}_{stat_name}'] = stat_value
+
         if 'category' in self.anomalies_df.columns:
             print(f"\nAnomaly Distribution by Category:")
             category_counts = self.anomalies_df['category'].value_counts()
@@ -124,7 +127,6 @@ class AnomalyDetectionEvaluator:
                 results[f'category_{category}_count'] = count
                 results[f'category_{category}_percentage'] = percentage
 
-        # Rating distribution analysis
         if 'rating' in self.anomalies_df.columns:
             print(f"\nRating Distribution Analysis:")
             rating_counts = self.anomalies_df['rating'].value_counts().sort_index()
@@ -154,13 +156,8 @@ class AnomalyDetectionEvaluator:
 
         results = {}
 
-        # Feature comparisons - updated to reflect new feature set focused on deception detection
-        feature_columns = ['helpful_vote', 'verified_purchase', 'has_images',
-                           'rating_diff', 'reviewer_review_count',
-                           'rating_vs_product_avg_abs']
-
-        available_features = [col for col in feature_columns if col in self.anomalies_df.columns
-                              and col in self.original_df.columns]
+        available_features = [col for col in FEATURE_COLUMNS
+                              if col in self.anomalies_df.columns and col in self.original_df.columns]
 
         print(f"Feature Comparison Analysis:")
         for feature in available_features:
@@ -181,7 +178,6 @@ class AnomalyDetectionEvaluator:
             results[f'{feature}_mean_diff'] = mean_diff
             results[f'{feature}_std_ratio'] = std_ratio
 
-        # Category comparison
         if 'category' in self.anomalies_df.columns and 'category' in self.original_df.columns:
             print(f"\nCategory Distribution Comparison:")
             anomaly_cats = self.anomalies_df['category'].value_counts(normalize=True)
@@ -200,231 +196,25 @@ class AnomalyDetectionEvaluator:
 
         return results
 
-    def evaluate_clustering_quality(self) -> Dict:
-        """
-        Evaluate the quality of DBSCAN clustering (excluding noise points).
-        
-        Returns:
-            Dictionary with clustering quality metrics
-        """
-        print("\n" + "=" * 60)
-        print("CLUSTERING QUALITY EVALUATION")
-        print("=" * 60)
-
-        results = {}
-
-        if 'cluster' not in self.anomalies_df.columns:
-            print("⚠️ No cluster information found in results")
-            return results
-
-        # Get non-noise clusters
-        cluster_labels = self.anomalies_df['cluster'].values
-        non_noise_mask = cluster_labels != -1
-        non_noise_labels = cluster_labels[non_noise_mask]
-
-        if len(non_noise_labels) == 0:
-            print("⚠️ No non-noise clusters found")
-            return results
-
-        # Build feature matrix for clustering evaluation - updated to reflect new feature set
-        feature_columns = ['helpful_vote', 'verified_purchase', 'has_images',
-                           'rating_diff', 'reviewer_review_count',
-                           'rating_vs_product_avg_abs']
-
-        available_features = [col for col in feature_columns if col in self.anomalies_df.columns]
-
-        if len(available_features) < 2:
-            print("⚠️ Insufficient features for clustering evaluation")
-            return results
-
-        # Create feature matrix
-        feature_data = self.anomalies_df[available_features].values[non_noise_mask]
-
-        # Clustering metrics
-        n_clusters = len(set(non_noise_labels))
-        n_noise = np.sum(cluster_labels == -1)
-        n_total = len(cluster_labels)
-
-        print(f"Clustering Statistics:")
-        print(f"  Total points: {n_total}")
-        print(f"  Noise points: {n_noise} ({n_noise / n_total * 100:.1f}%)")
-        print(f"  Clustered points: {len(non_noise_labels)} ({len(non_noise_labels) / n_total * 100:.1f}%)")
-        print(f"  Number of clusters: {n_clusters}")
-
-        results['total_points'] = n_total
-        results['noise_points'] = n_noise
-        results['noise_percentage'] = n_noise / n_total
-        results['clustered_points'] = len(non_noise_labels)
-        results['clustered_percentage'] = len(non_noise_labels) / n_total
-        results['n_clusters'] = n_clusters
-
-        # Cluster size distribution
-        if n_clusters > 0:
-            cluster_sizes = [np.sum(non_noise_labels == i) for i in range(n_clusters)]
-            print(
-                f"  Cluster sizes: min={min(cluster_sizes)}, max={max(cluster_sizes)}, mean={np.mean(cluster_sizes):.1f}")
-
-            results['min_cluster_size'] = min(cluster_sizes)
-            results['max_cluster_size'] = max(cluster_sizes)
-            results['mean_cluster_size'] = np.mean(cluster_sizes)
-            results['cluster_size_std'] = np.std(cluster_sizes)
-
-        # Silhouette score (if multiple clusters)
-        if n_clusters > 1 and len(non_noise_labels) > 1:
-            try:
-                silhouette_avg = silhouette_score(feature_data, non_noise_labels)
-                print(f"  Silhouette Score: {silhouette_avg:.4f}")
-                results['silhouette_score'] = silhouette_avg
-            except Exception as e:
-                print(f"  Silhouette Score: Could not compute ({e})")
-
-        # Calinski-Harabasz score
-        if n_clusters > 1:
-            try:
-                ch_score = calinski_harabasz_score(feature_data, non_noise_labels)
-                print(f"  Calinski-Harabasz Score: {ch_score:.4f}")
-                results['calinski_harabasz_score'] = ch_score
-            except Exception as e:
-                print(f"  Calinski-Harabasz Score: Could not compute ({e})")
-
-        # Davies-Bouldin score
-        if n_clusters > 1:
-            try:
-                db_score = davies_bouldin_score(feature_data, non_noise_labels)
-                print(f"  Davies-Bouldin Score: {db_score:.4f}")
-                results['davies_bouldin_score'] = db_score
-            except Exception as e:
-                print(f"  Davies-Bouldin Score: Could not compute ({e})")
-
-        return results
-
-    def analyze_anomaly_patterns(self) -> Dict:
-        """
-        Analyze patterns in the detected anomalies.
-        
-        Returns:
-            Dictionary with pattern analysis results
-        """
-        print("\n" + "=" * 60)
-        print("ANOMALY PATTERN ANALYSIS")
-        print("=" * 60)
-
-        results = {}
-
-        # Rating vs Predicted Rating Analysis
-        if 'rating' in self.anomalies_df.columns and 'predicted_rating' in self.anomalies_df.columns:
-            print("Rating vs Predicted Rating Analysis:")
-
-            rating_diff = self.anomalies_df['rating'] - self.anomalies_df['predicted_rating']
-            mean_diff = rating_diff.mean()
-            std_diff = rating_diff.std()
-
-            print(f"  Mean rating difference: {mean_diff:.4f}")
-            print(f"  Std rating difference: {std_diff:.4f}")
-
-            # Categorize by rating difference
-            positive_diff = rating_diff > 0
-            negative_diff = rating_diff < 0
-
-            print(
-                f"  Positive differences (actual > predicted): {positive_diff.sum()} ({positive_diff.mean() * 100:.1f}%)")
-            print(
-                f"  Negative differences (actual < predicted): {negative_diff.sum()} ({negative_diff.mean() * 100:.1f}%)")
-
-            results['mean_rating_diff'] = mean_diff
-            results['std_rating_diff'] = std_diff
-            results['positive_diff_count'] = positive_diff.sum()
-            results['negative_diff_count'] = negative_diff.sum()
-            results['positive_diff_percentage'] = positive_diff.mean() * 100
-            results['negative_diff_percentage'] = negative_diff.mean() * 100
-
-        # Helpful votes analysis
-        if 'helpful_vote' in self.anomalies_df.columns:
-            print(f"\nHelpful Votes Analysis:")
-            helpful_votes = self.anomalies_df['helpful_vote']
-
-            zero_votes = (helpful_votes == 0).sum()
-            low_votes = ((helpful_votes > 0) & (helpful_votes <= 5)).sum()
-            high_votes = (helpful_votes > 5).sum()
-
-            print(f"  Zero votes: {zero_votes} ({zero_votes / len(helpful_votes) * 100:.1f}%)")
-            print(f"  Low votes (1-5): {low_votes} ({low_votes / len(helpful_votes) * 100:.1f}%)")
-            print(f"  High votes (>5): {high_votes} ({high_votes / len(helpful_votes) * 100:.1f}%)")
-
-            results['zero_votes_count'] = zero_votes
-            results['low_votes_count'] = low_votes
-            results['high_votes_count'] = high_votes
-            results['zero_votes_percentage'] = zero_votes / len(helpful_votes) * 100
-            results['low_votes_percentage'] = low_votes / len(helpful_votes) * 100
-            results['high_votes_percentage'] = high_votes / len(helpful_votes) * 100
-
-        # Verified purchase analysis
-        if 'verified_purchase' in self.anomalies_df.columns:
-            print(f"\nVerified Purchase Analysis:")
-            verified = self.anomalies_df['verified_purchase']
-
-            verified_count = verified.sum()
-            unverified_count = len(verified) - verified_count
-
-            print(f"  Verified purchases: {verified_count} ({verified_count / len(verified) * 100:.1f}%)")
-            print(f"  Unverified purchases: {unverified_count} ({unverified_count / len(verified) * 100:.1f}%)")
-
-            results['verified_count'] = verified_count
-            results['unverified_count'] = unverified_count
-            results['verified_percentage'] = verified_count / len(verified) * 100
-            results['unverified_percentage'] = unverified_count / len(verified) * 100
-
-        # Has images analysis
-        if 'has_images' in self.anomalies_df.columns:
-            print(f"\nImages Analysis:")
-            has_images = self.anomalies_df['has_images']
-
-            with_images = has_images.sum()
-            without_images = len(has_images) - with_images
-
-            print(f"  Reviews with images: {with_images} ({with_images / len(has_images) * 100:.1f}%)")
-            print(f"  Reviews without images: {without_images} ({without_images / len(has_images) * 100:.1f}%)")
-
-            results['with_images_count'] = with_images
-            results['without_images_count'] = without_images
-            results['with_images_percentage'] = with_images / len(has_images) * 100
-            results['without_images_percentage'] = without_images / len(has_images) * 100
-
-        return results
-
-    def create_visualizations(self, output_dir: str = "evaluation_plots"):
-        """
-        Create visualizations for anomaly detection results with comparison to normal data.
-        
-        Args:
-            output_dir: Directory to save plots
-        """
-
-        create_anomaly_visualizations(
-            anomalies_df=self.anomalies_df,
-            output_dir=output_dir,
-            original_df=self.original_df
-        )
-
-    def generate_summary_report(self, output_file: str = "anomaly_evaluation_report.txt"):
+    def generate_summary_report(self, output_file: str = "anomaly_evaluation_report.txt",
+                                anomaly_chars: dict = None, basic_results: dict = None,
+                                user_results: dict = None, length_results: dict = None,
+                                comparison_results: dict = None):
         """
         Generate a comprehensive summary report.
         
         Args:
             output_file: Path to save the report
+            anomaly_chars: Pre-computed anomaly characteristics (optional)
+            basic_results: Pre-computed basic metrics analysis results (optional)
+            user_results: Pre-computed user analysis results (optional)
+            length_results: Pre-computed length analysis results (optional)
+            comparison_results: Pre-computed comparison results (optional)
         """
         print(f"\nGenerating summary report: {output_file}")
+        anomaly_patterns = basic_results
+        user_patterns = user_results
 
-        # Run all evaluations
-        anomaly_chars = self.evaluate_anomaly_characteristics()
-        clustering_quality = self.evaluate_clustering_quality()
-        anomaly_patterns = self.analyze_anomaly_patterns()
-
-        comparison_results = {}
-        if self.original_df is not None:
-            comparison_results = self.compare_with_original_data()
-
-        # Write report
         with open(output_file, 'w') as f:
             f.write("=" * 80 + "\n")
             f.write("DBSCAN ANOMALY DETECTION EVALUATION REPORT\n")
@@ -435,40 +225,34 @@ class AnomalyDetectionEvaluator:
                 f.write(f"Original Data File: {self.original_data_file}\n")
             f.write(f"Evaluation Date: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
 
-            # Summary statistics
             f.write("SUMMARY STATISTICS\n")
             f.write("-" * 40 + "\n")
             f.write(f"Total Anomalies Detected: {anomaly_chars.get('total_anomalies', 'N/A')}\n")
             if 'anomaly_rate' in anomaly_chars:
                 f.write(
                     f"Anomaly Rate: {anomaly_chars['anomaly_rate']:.4f} ({anomaly_chars['anomaly_rate'] * 100:.2f}%)\n")
-            f.write(f"Number of Clusters: {clustering_quality.get('n_clusters', 'N/A')}\n")
-            f.write(
-                f"Noise Points: {clustering_quality.get('noise_points', 'N/A')} ({clustering_quality.get('noise_percentage', 0) * 100:.1f}%)\n\n")
 
-            # Key findings
             f.write("KEY FINDINGS\n")
             f.write("-" * 40 + "\n")
 
-            # Rating analysis
             if 'mean_rating_diff' in anomaly_patterns:
                 f.write(f"• Average rating difference: {anomaly_patterns['mean_rating_diff']:.3f}\n")
                 f.write(f"• Positive rating differences: {anomaly_patterns['positive_diff_percentage']:.1f}%\n")
                 f.write(f"• Negative rating differences: {anomaly_patterns['negative_diff_percentage']:.1f}%\n")
 
-            # Helpful votes
             if 'zero_votes_percentage' in anomaly_patterns:
                 f.write(f"• Reviews with zero helpful votes: {anomaly_patterns['zero_votes_percentage']:.1f}%\n")
 
-            # Verified purchases
             if 'verified_percentage' in anomaly_patterns:
                 f.write(f"• Verified purchases: {anomaly_patterns['verified_percentage']:.1f}%\n")
 
-            # Clustering quality
-            if 'silhouette_score' in clustering_quality:
-                f.write(f"• Clustering quality (Silhouette): {clustering_quality['silhouette_score']:.3f}\n")
+            if 'total_anomalous_users' in user_patterns:
+                f.write(f"• Users with anomalous reviews: {user_patterns['total_anomalous_users']:,}\n")
+                f.write(f"• Avg anomalies per user: {user_patterns['avg_anomalies_per_user']:.2f}\n")
+                f.write(f"• Avg normal reviews per user: {user_patterns['avg_normal_reviews_per_user']:.1f}\n")
+                f.write(f"• Users with all reviews anomalous: {user_patterns['users_with_all_anomalous']:,}\n")
+                f.write(f"• Users with >50% anomaly rate: {user_patterns['users_with_high_anomaly_rate']:,}\n")
 
-            # Comparison with normal data
             if comparison_results:
                 f.write("\nCOMPARISON WITH NORMAL DATA:\n")
                 for key, value in comparison_results.items():
@@ -479,11 +263,9 @@ class AnomalyDetectionEvaluator:
 
             f.write("\n")
 
-            # Detailed metrics
             f.write("DETAILED METRICS\n")
             f.write("-" * 40 + "\n")
 
-            # Feature statistics
             f.write("Feature Statistics:\n")
             for key, value in anomaly_chars.items():
                 if key.startswith(
@@ -495,17 +277,45 @@ class AnomalyDetectionEvaluator:
 
             f.write("\n")
 
-            # Clustering metrics
-            f.write("Clustering Metrics:\n")
-            for key, value in clustering_quality.items():
-                if isinstance(value, float):
-                    f.write(f"  {key}: {value:.4f}\n")
-                else:
-                    f.write(f"  {key}: {value}\n")
+            if user_patterns:
+                f.write("User Pattern Metrics:\n")
+                for key, value in user_patterns.items():
+                    if key == 'user_analysis_data':
+                        continue
+                    if isinstance(value, dict):
+                        f.write(f"  {key}:\n")
+                        for subkey, subvalue in value.items():
+                            if isinstance(subvalue, float):
+                                f.write(f"    {subkey}: {subvalue:.4f}\n")
+                            else:
+                                f.write(f"    {subkey}: {subvalue}\n")
+                    elif isinstance(value, float):
+                        f.write(f"  {key}: {value:.4f}\n")
+                    else:
+                        f.write(f"  {key}: {value}\n")
 
-            f.write("\n")
+                f.write("\n")
 
-            # Comparison with original data
+            if length_results:
+                f.write("Length Analysis Metrics:\n")
+                for key, value in length_results.items():
+                    if key.endswith('_stats') and isinstance(value, dict):
+                        f.write(f"  {key.replace('_', ' ').title()}:\n")
+                        for subkey, subvalue in value.items():
+                            if isinstance(subvalue, float):
+                                f.write(f"    {subkey}: {subvalue:.2f}\n")
+                            else:
+                                f.write(f"    {subkey}: {subvalue}\n")
+                    elif isinstance(value, (int, float)):
+                        if isinstance(value, float):
+                            f.write(f"  {key}: {value:.2f}\n")
+                        else:
+                            f.write(f"  {key}: {value}\n")
+                    elif isinstance(value, str):
+                        f.write(f"  {key}: {value}\n")
+
+                f.write("\n")
+
             if comparison_results:
                 f.write("Comparison with Original Data:\n")
                 for key, value in comparison_results.items():
@@ -523,7 +333,6 @@ class AnomalyDetectionEvaluator:
         Args:
             output_dir: Directory to save all results
         """
-        # Create category-specific directory
         category_dir = os.path.join(output_dir, self.category)
         os.makedirs(category_dir, exist_ok=True)
 
@@ -532,29 +341,29 @@ class AnomalyDetectionEvaluator:
         print(f"Category: {self.category}")
         print("=" * 80)
 
-        # Run all evaluations
         anomaly_chars = self.evaluate_anomaly_characteristics()
-        clustering_quality = self.evaluate_clustering_quality()
-        anomaly_patterns = self.analyze_anomaly_patterns()
+
+        plots_dir = os.path.join(category_dir, "plots")
+        basic_results = run_basic_metrics_analysis(self.anomalies_df, self.original_df, plots_dir)
+        user_results = run_user_analysis(self.anomalies_df, plots_dir)
+        length_results = run_length_analysis(self.anomalies_df, self.original_df, plots_dir)
+        # coordinated_results = run_coordinated_attacks_analysis(self.anomalies_df, plots_dir)
 
         comparison_results = {}
         if self.original_df is not None:
             comparison_results = self.compare_with_original_data()
 
-        # Create visualizations
-        plots_dir = os.path.join(category_dir, "plots")
-        self.create_visualizations(plots_dir)
-
         report_file = os.path.join(category_dir, "evaluation_report.txt")
-        self.generate_summary_report(report_file)
+        self.generate_summary_report(report_file, anomaly_chars, basic_results, user_results, length_results,
+                                     comparison_results)
 
-        # Save metrics as JSON
-        import json
         all_metrics = {
             'category': self.category,
             'anomaly_characteristics': anomaly_chars,
-            'clustering_quality': clustering_quality,
-            'anomaly_patterns': anomaly_patterns,
+            'basic_metrics': basic_results,
+            'user_analysis': user_results,
+            'length_analysis': length_results,
+            # 'coordinated_attacks': coordinated_results,
             'comparison_with_original': comparison_results
         }
 
@@ -599,14 +408,13 @@ def main():
     )
 
     parser.add_argument(
-        '--create-plots',
-        action='store_true',
-        help='Create visualization plots'
+        '--category',
+        default='books',
+        help='The category of the reviews'
     )
 
     args = parser.parse_args()
 
-    # Display file paths being used
     print("=" * 80)
     print("DBSCAN ANOMALY DETECTION EVALUATION")
     print("=" * 80)
@@ -615,7 +423,6 @@ def main():
     print(f"Output Directory: {args.output_dir}")
     print("=" * 80)
 
-    # Check if files exist
     if not os.path.exists(args.anomaly_data_file):
         print(f"❌ Anomaly data file not found: {args.anomaly_data_file}")
         print("Please provide a valid path using --anomaly-data-file")
@@ -626,14 +433,13 @@ def main():
         print("Please provide a valid path using --original-data")
         return
 
-    # Initialize evaluator
     evaluator = AnomalyDetectionEvaluator(
         results_file=args.anomaly_data_file,
-        original_data_file=args.original_data
+        original_data_file=args.original_data,
+        category=args.category
     )
 
-    # Run evaluation
-    metrics = evaluator.run_complete_evaluation(args.output_dir)
+    evaluator.run_complete_evaluation(args.output_dir)
 
     print("\n" + "=" * 80)
     print("EVALUATION COMPLETE!")
