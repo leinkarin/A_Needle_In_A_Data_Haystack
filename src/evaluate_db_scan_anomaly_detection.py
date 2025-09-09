@@ -347,7 +347,7 @@ class AnomalyDetectionEvaluator:
         basic_results = run_basic_metrics_analysis(self.anomalies_df, self.original_df, plots_dir)
         user_results = run_user_analysis(self.anomalies_df, plots_dir)
         length_results = run_length_analysis(self.anomalies_df, self.original_df, plots_dir)
-        # coordinated_results = run_coordinated_attacks_analysis(self.anomalies_df, plots_dir)
+        coordinated_results = run_coordinated_attacks_analysis(self.anomalies_df, plots_dir)
 
         comparison_results = {}
         if self.original_df is not None:
@@ -363,7 +363,7 @@ class AnomalyDetectionEvaluator:
             'basic_metrics': basic_results,
             'user_analysis': user_results,
             'length_analysis': length_results,
-            # 'coordinated_attacks': coordinated_results,
+            'coordinated_attacks': coordinated_results,
             'comparison_with_original': comparison_results
         }
 
