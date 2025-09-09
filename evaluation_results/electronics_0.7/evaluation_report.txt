@@ -1,0 +1,209 @@
+================================================================================
+DBSCAN ANOMALY DETECTION EVALUATION REPORT
+================================================================================
+
+Results File: output/electronics_test_scan_anomalies_eps_0.7_min_samples_12_batch_size_100000.csv
+Original Data File: data/test/electronics_test.csv
+Evaluation Date: 2025-09-09 19:46:04
+
+SUMMARY STATISTICS
+----------------------------------------
+Total Anomalies Detected: 2522
+Anomaly Rate: 0.0051 (0.51%)
+KEY FINDINGS
+----------------------------------------
+• Average rating difference: -0.222
+• Positive rating differences: 29.9%
+• Negative rating differences: 70.1%
+• Reviews with zero helpful votes: 25.6%
+• Verified purchases: 60.9%
+• Users with anomalous reviews: 1,600
+• Avg anomalies per user: 1.58
+• Avg normal reviews per user: 28.9
+• Users with all reviews anomalous: 73
+• Users with >50% anomaly rate: 75
+
+COMPARISON WITH NORMAL DATA:
+• Rating Diff Mean Diff: +0.846
+• Rating Vs Product Avg Abs Mean Diff: +0.744
+• Category Electronics Pct Diff: +0.0%
+
+DETAILED METRICS
+----------------------------------------
+Feature Statistics:
+  helpful_vote_mean: 73.6550
+  helpful_vote_std: 278.9501
+  helpful_vote_min: 0
+  helpful_vote_max: 8722
+  helpful_vote_median: 22.0000
+  helpful_vote_q25: 0.0000
+  helpful_vote_q75: 71.0000
+  helpful_vote_range: 8722
+  verified_purchase_mean: 0.6094
+  verified_purchase_std: 0.4880
+  verified_purchase_min: False
+  verified_purchase_max: True
+  verified_purchase_median: None
+  verified_purchase_q25: None
+  verified_purchase_q75: None
+  verified_purchase_range: None
+  has_images_mean: 0.3339
+  has_images_std: 0.4717
+  has_images_min: False
+  has_images_max: True
+  has_images_median: None
+  has_images_q25: None
+  has_images_q75: None
+  has_images_range: None
+  rating_diff_mean: 1.2046
+  rating_diff_std: 1.1344
+  rating_diff_min: 0.0001
+  rating_diff_max: 4.2175
+  rating_diff_median: 0.8594
+  rating_diff_q25: 0.2164
+  rating_diff_q75: 1.9294
+  rating_diff_range: 4.2174
+  reviewer_review_count_mean: 106.1217
+  reviewer_review_count_std: 171.1730
+  reviewer_review_count_min: 1
+  reviewer_review_count_max: 1030
+  reviewer_review_count_median: 30.0000
+  reviewer_review_count_q25: 9.0000
+  reviewer_review_count_q75: 139.0000
+  reviewer_review_count_range: 1029
+  rating_vs_product_avg_abs_mean: 1.6725
+  rating_vs_product_avg_abs_std: 1.1747
+  rating_vs_product_avg_abs_min: 0.0000
+  rating_vs_product_avg_abs_max: 4.0000
+  rating_vs_product_avg_abs_median: 1.4000
+  rating_vs_product_avg_abs_q25: 0.6000
+  rating_vs_product_avg_abs_q75: 2.7000
+  rating_vs_product_avg_abs_range: 4.0000
+  rating_1_count: 739
+  rating_1_percentage: 29.3021
+  rating_2_count: 339
+  rating_2_percentage: 13.4417
+  rating_3_count: 247
+  rating_3_percentage: 9.7938
+  rating_4_count: 328
+  rating_4_percentage: 13.0056
+  rating_5_count: 869
+  rating_5_percentage: 34.4568
+
+User Pattern Metrics:
+  total_anomalous_users: 1600
+  total_anomalous_reviews: 2522
+  avg_anomalies_per_user: 1.5762
+  median_anomalies_per_user: 1.0000
+  max_anomalies_per_user: 41
+  avg_total_reviews_per_user: 30.4819
+  median_total_reviews_per_user: 13.0000
+  avg_normal_reviews_per_user: 28.9056
+  median_normal_reviews_per_user: 12.0000
+  avg_anomaly_rate: 0.1660
+  median_anomaly_rate: 0.0833
+  users_with_all_anomalous: 73
+  users_with_high_anomaly_rate: 75
+  users_with_single_review: 72
+  users_with_multiple_reviews: 1528
+  anomaly_count_percentiles:
+    25th: 1.0000
+    50th: 1.0000
+    75th: 1.0000
+    90th: 2.0000
+    95th: 3.0000
+  total_reviews_percentiles:
+    25th: 5.0000
+    50th: 13.0000
+    75th: 31.0000
+    90th: 74.1000
+    95th: 114.0000
+  anomaly_rate_percentiles:
+    25th: 0.0400
+    50th: 0.0833
+    75th: 0.2000
+    90th: 0.3333
+    95th: 0.5000
+
+Length Analysis Metrics:
+  Text Char Stats:
+    mean: 748.89
+    median: 608.50
+    std: 549.33
+    min: 4
+    max: 2387
+    q25: 304.00
+    q75: 1102.00
+  Text Word Stats:
+    mean: 137.51
+    median: 112.00
+    std: 100.06
+    min: 1
+    max: 420
+    q25: 57.00
+    q75: 202.00
+  text_char_rating_correlation: 0.16
+  text_word_rating_correlation: 0.16
+  text_char_helpfulness_correlation: 0.11
+  text_word_helpfulness_correlation: 0.11
+  Review Data Char Stats:
+    mean: 810.55
+    median: 670.00
+    std: 553.87
+    min: 35
+    max: 2449
+    q25: 362.00
+    q75: 1164.75
+  Review Data Word Stats:
+    mean: 144.73
+    median: 119.00
+    std: 100.76
+    min: 3
+    max: 422
+    q25: 63.00
+    q75: 209.75
+  review_data_char_rating_correlation: 0.16
+  review_data_word_rating_correlation: 0.16
+  review_data_char_helpfulness_correlation: 0.11
+  review_data_word_helpfulness_correlation: 0.11
+  Title Char Stats:
+    mean: 34.66
+    median: 30.00
+    std: 20.76
+    min: 2
+    max: 128
+    q25: 20.00
+    q75: 45.00
+  Title Word Stats:
+    mean: 6.22
+    median: 5.00
+    std: 3.84
+    min: 1
+    max: 26
+    q25: 3.00
+    q75: 8.00
+  title_char_rating_correlation: 0.01
+  title_word_rating_correlation: -0.01
+  title_char_helpfulness_correlation: 0.01
+  title_word_helpfulness_correlation: 0.01
+  text_char_length_diff_pct: -86.38
+  text_word_length_diff_pct: -86.93
+  review_data_char_length_diff_pct: -88.66
+  review_data_word_length_diff_pct: -88.27
+  title_char_length_diff_pct: 43.28
+  title_word_length_diff_pct: 40.43
+
+Comparison with Original Data:
+  helpful_vote_mean_diff: 72.5330
+  helpful_vote_std_ratio: 13.3784
+  verified_purchase_mean_diff: -0.2984
+  verified_purchase_std_ratio: 1.6869
+  has_images_mean_diff: 0.2964
+  has_images_std_ratio: 2.4850
+  rating_diff_mean_diff: 0.8457
+  rating_diff_std_ratio: 2.6236
+  reviewer_review_count_mean_diff: 78.7894
+  reviewer_review_count_std_ratio: 2.3397
+  rating_vs_product_avg_abs_mean_diff: 0.7439
+  rating_vs_product_avg_abs_std_ratio: 1.4028
+  category_Electronics_pct_diff: 0.0000

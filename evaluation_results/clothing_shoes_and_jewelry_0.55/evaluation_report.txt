@@ -1,0 +1,209 @@
+================================================================================
+DBSCAN ANOMALY DETECTION EVALUATION REPORT
+================================================================================
+
+Results File: output/clothing_shoes_and_jewelry_test_scan_anomalies_eps_0.55_min_samples_12_batch_size_100000.csv
+Original Data File: data/test/clothing_shoes_and_jewelry_test.csv
+Evaluation Date: 2025-09-09 20:46:49
+
+SUMMARY STATISTICS
+----------------------------------------
+Total Anomalies Detected: 4425
+Anomaly Rate: 0.0089 (0.89%)
+KEY FINDINGS
+----------------------------------------
+• Average rating difference: -0.357
+• Positive rating differences: 27.0%
+• Negative rating differences: 73.0%
+• Reviews with zero helpful votes: 22.4%
+• Verified purchases: 61.7%
+• Users with anomalous reviews: 2,426
+• Avg anomalies per user: 1.82
+• Avg normal reviews per user: 46.4
+• Users with all reviews anomalous: 84
+• Users with >50% anomaly rate: 86
+
+COMPARISON WITH NORMAL DATA:
+• Rating Diff Mean Diff: +0.646
+• Rating Vs Product Avg Abs Mean Diff: +0.738
+• Category Clothing Shoes And Jewelry Pct Diff: +0.0%
+
+DETAILED METRICS
+----------------------------------------
+Feature Statistics:
+  helpful_vote_mean: 34.6793
+  helpful_vote_std: 82.3650
+  helpful_vote_min: 0
+  helpful_vote_max: 1749
+  helpful_vote_median: 14.0000
+  helpful_vote_q25: 1.0000
+  helpful_vote_q75: 36.0000
+  helpful_vote_range: 1749
+  verified_purchase_mean: 0.6172
+  verified_purchase_std: 0.4861
+  verified_purchase_min: False
+  verified_purchase_max: True
+  verified_purchase_median: None
+  verified_purchase_q25: None
+  verified_purchase_q75: None
+  verified_purchase_range: None
+  has_images_mean: 0.4696
+  has_images_std: 0.4991
+  has_images_min: False
+  has_images_max: True
+  has_images_median: None
+  has_images_q25: None
+  has_images_q75: None
+  has_images_range: None
+  rating_diff_mean: 1.0241
+  rating_diff_std: 0.9332
+  rating_diff_min: 0.0003
+  rating_diff_max: 4.2295
+  rating_diff_median: 0.7828
+  rating_diff_q25: 0.2132
+  rating_diff_q75: 1.6063
+  rating_diff_range: 4.2292
+  reviewer_review_count_mean: 389.3941
+  reviewer_review_count_std: 729.9002
+  reviewer_review_count_min: 1
+  reviewer_review_count_max: 4293
+  reviewer_review_count_median: 40.0000
+  reviewer_review_count_q25: 12.0000
+  reviewer_review_count_q75: 410.0000
+  reviewer_review_count_range: 4292
+  rating_vs_product_avg_abs_mean: 1.5785
+  rating_vs_product_avg_abs_std: 1.1264
+  rating_vs_product_avg_abs_min: 0.0000
+  rating_vs_product_avg_abs_max: 4.0000
+  rating_vs_product_avg_abs_median: 1.3000
+  rating_vs_product_avg_abs_q25: 0.6000
+  rating_vs_product_avg_abs_q75: 2.5000
+  rating_vs_product_avg_abs_range: 4.0000
+  rating_1_count: 1106
+  rating_1_percentage: 24.9944
+  rating_2_count: 683
+  rating_2_percentage: 15.4350
+  rating_3_count: 560
+  rating_3_percentage: 12.6554
+  rating_4_count: 682
+  rating_4_percentage: 15.4124
+  rating_5_count: 1394
+  rating_5_percentage: 31.5028
+
+User Pattern Metrics:
+  total_anomalous_users: 2426
+  total_anomalous_reviews: 4425
+  avg_anomalies_per_user: 1.8240
+  median_anomalies_per_user: 1.0000
+  max_anomalies_per_user: 103
+  avg_total_reviews_per_user: 48.2638
+  median_total_reviews_per_user: 15.0000
+  avg_normal_reviews_per_user: 46.4398
+  median_normal_reviews_per_user: 14.0000
+  avg_anomaly_rate: 0.1482
+  median_anomaly_rate: 0.0769
+  users_with_all_anomalous: 84
+  users_with_high_anomaly_rate: 86
+  users_with_single_review: 83
+  users_with_multiple_reviews: 2343
+  anomaly_count_percentiles:
+    25th: 1.0000
+    50th: 1.0000
+    75th: 1.0000
+    90th: 2.0000
+    95th: 4.0000
+  total_reviews_percentiles:
+    25th: 6.0000
+    50th: 15.0000
+    75th: 33.0000
+    90th: 79.0000
+    95th: 145.0000
+  anomaly_rate_percentiles:
+    25th: 0.0385
+    50th: 0.0769
+    75th: 0.1667
+    90th: 0.3333
+    95th: 0.5000
+
+Length Analysis Metrics:
+  Text Char Stats:
+    mean: 536.87
+    median: 423.00
+    std: 413.12
+    min: 1
+    max: 2216
+    q25: 233.00
+    q75: 730.00
+  Text Word Stats:
+    mean: 101.25
+    median: 81.00
+    std: 77.35
+    min: 1
+    max: 405
+    q25: 44.00
+    q75: 138.00
+  text_char_rating_correlation: 0.16
+  text_word_rating_correlation: 0.16
+  text_char_helpfulness_correlation: 0.14
+  text_word_helpfulness_correlation: 0.14
+  Review Data Char Stats:
+    mean: 609.18
+    median: 496.00
+    std: 419.49
+    min: 45
+    max: 2305
+    q25: 301.00
+    q75: 805.00
+  Review Data Word Stats:
+    mean: 107.73
+    median: 87.00
+    std: 78.41
+    min: 3
+    max: 414
+    q25: 49.00
+    q75: 145.00
+  review_data_char_rating_correlation: 0.15
+  review_data_word_rating_correlation: 0.15
+  review_data_char_helpfulness_correlation: 0.14
+  review_data_word_helpfulness_correlation: 0.14
+  Title Char Stats:
+    mean: 30.31
+    median: 25.00
+    std: 19.66
+    min: 2
+    max: 131
+    q25: 16.00
+    q75: 40.00
+  Title Word Stats:
+    mean: 5.48
+    median: 5.00
+    std: 3.67
+    min: 1
+    max: 27
+    q25: 3.00
+    q75: 7.00
+  title_char_rating_correlation: 0.00
+  title_word_rating_correlation: -0.01
+  title_char_helpfulness_correlation: 0.02
+  title_word_helpfulness_correlation: 0.01
+  text_char_length_diff_pct: -85.68
+  text_word_length_diff_pct: -86.36
+  review_data_char_length_diff_pct: -88.99
+  review_data_word_length_diff_pct: -87.85
+  title_char_length_diff_pct: 40.96
+  title_word_length_diff_pct: 39.84
+
+Comparison with Original Data:
+  helpful_vote_mean_diff: 33.7334
+  helpful_vote_std_ratio: 9.4604
+  verified_purchase_mean_diff: -0.1933
+  verified_purchase_std_ratio: 1.2403
+  has_images_mean_diff: 0.4015
+  has_images_std_ratio: 1.9813
+  rating_diff_mean_diff: 0.6458
+  rating_diff_std_ratio: 2.1744
+  reviewer_review_count_mean_diff: 213.9714
+  reviewer_review_count_std_ratio: 1.2991
+  rating_vs_product_avg_abs_mean_diff: 0.7382
+  rating_vs_product_avg_abs_std_ratio: 1.5361
+  category_Clothing_Shoes_and_Jewelry_pct_diff: 0.0000
