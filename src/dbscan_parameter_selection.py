@@ -110,7 +110,7 @@ def extract_category_from_path(csv_path: str) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="Analyze and suggest optimal eps parameter for DBSCAN")
-    parser.add_argument("--csv-path", required=True, help="Path to CSV file")
+    parser.add_argument("--csv-path", required=True, help="Path to CSV file with the data on the reviews")
     parser.add_argument("--min-samples", type=int, default=16, help="DBSCAN min_samples parameter")
     parser.add_argument("--plot", default="k_distance_plot.png", help="Output path for k-distance plot")
     

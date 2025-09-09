@@ -119,7 +119,7 @@ class DBScanAnomalyDetector:
 
 def main():
     parser = argparse.ArgumentParser(description="Find anomalous Amazon reviews using metadata features with memory-optimized DBSCAN")
-    parser.add_argument("--csv-path", required=True, help="Path to CSV file")
+    parser.add_argument("--csv-path", required=True, help="Path to CSV file with the data on the reviews")
     parser.add_argument("--out", default="dbscan_anomalies.csv", help="Output CSV file")
     parser.add_argument("--num-samples", type=int, default=None, help="Max number of samples to process")
     parser.add_argument("--eps", type=float, default=0.6, help="DBSCAN epsilon parameter")
@@ -152,7 +152,7 @@ def main():
     print(f"  Total points: {len(cluster_labels)}")
     print(f"  Noise points (anomalies): {n_noise}")
     print(f"  Clusters found: {n_clusters}")
-    print(f"  Features used: rating, helpful_votes, verified_purchase, has_images, token_count, predicted_rating, rating_diff")
+    print(f"  Features used: helpful_votes, verified_purchase, has_images, rating_diff, reviewer_review_count, rating_vs_product_avg_abs")
 
 if __name__ == "__main__":
     main()
