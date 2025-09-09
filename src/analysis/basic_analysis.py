@@ -108,7 +108,8 @@ def create_rating_comparison_plot(anomalies_df: pd.DataFrame, original_df: pd.Da
 
     plt.title('Rating Distribution: Anomalies vs Normal Reviews')
     plt.xlabel('Rating')
-    plt.ylabel('Count')
+    plt.ylabel('Count (Log Scale)')
+    plt.yscale('log')
     plt.xticks(range(1, 6))
     plt.legend()
     plt.grid(True, alpha=0.3)

@@ -1,0 +1,209 @@
+================================================================================
+DBSCAN ANOMALY DETECTION EVALUATION REPORT
+================================================================================
+
+Results File: output/books_test_scan_anomalies_eps_0.7_min_samples_12_batch_size_100000.csv
+Original Data File: data/test/books_test.csv
+Evaluation Date: 2025-09-09 20:47:51
+
+SUMMARY STATISTICS
+----------------------------------------
+Total Anomalies Detected: 2225
+Anomaly Rate: 0.0075 (0.75%)
+KEY FINDINGS
+----------------------------------------
+• Average rating difference: -0.459
+• Positive rating differences: 25.9%
+• Negative rating differences: 74.1%
+• Reviews with zero helpful votes: 16.5%
+• Verified purchases: 50.4%
+• Users with anomalous reviews: 1,438
+• Avg anomalies per user: 1.55
+• Avg normal reviews per user: 48.4
+• Users with all reviews anomalous: 133
+• Users with >50% anomaly rate: 136
+
+COMPARISON WITH NORMAL DATA:
+• Rating Diff Mean Diff: +0.782
+• Rating Vs Product Avg Abs Mean Diff: +1.144
+• Category Books Pct Diff: +0.0%
+
+DETAILED METRICS
+----------------------------------------
+Feature Statistics:
+  helpful_vote_mean: 46.4733
+  helpful_vote_std: 114.6968
+  helpful_vote_min: 0
+  helpful_vote_max: 3567
+  helpful_vote_median: 25.0000
+  helpful_vote_q25: 2.0000
+  helpful_vote_q75: 54.0000
+  helpful_vote_range: 3567
+  verified_purchase_mean: 0.5043
+  verified_purchase_std: 0.5001
+  verified_purchase_min: False
+  verified_purchase_max: True
+  verified_purchase_median: None
+  verified_purchase_q25: None
+  verified_purchase_q75: None
+  verified_purchase_range: None
+  has_images_mean: 0.1991
+  has_images_std: 0.3994
+  has_images_min: False
+  has_images_max: True
+  has_images_median: None
+  has_images_q25: None
+  has_images_q75: None
+  has_images_range: None
+  rating_diff_mean: 1.1291
+  rating_diff_std: 1.1389
+  rating_diff_min: 0.0007
+  rating_diff_max: 4.2182
+  rating_diff_median: 0.7534
+  rating_diff_q25: 0.2103
+  rating_diff_q75: 1.6629
+  rating_diff_range: 4.2175
+  reviewer_review_count_mean: 376.3951
+  reviewer_review_count_std: 788.4838
+  reviewer_review_count_min: 1
+  reviewer_review_count_max: 3838
+  reviewer_review_count_median: 26.0000
+  reviewer_review_count_q25: 6.0000
+  reviewer_review_count_q75: 322.0000
+  reviewer_review_count_range: 3837
+  rating_vs_product_avg_abs_mean: 1.8049
+  rating_vs_product_avg_abs_std: 1.2346
+  rating_vs_product_avg_abs_min: 0.0000
+  rating_vs_product_avg_abs_max: 3.9000
+  rating_vs_product_avg_abs_median: 1.6000
+  rating_vs_product_avg_abs_q25: 0.6000
+  rating_vs_product_avg_abs_q75: 3.0000
+  rating_vs_product_avg_abs_range: 3.9000
+  rating_1_count: 684
+  rating_1_percentage: 30.7416
+  rating_2_count: 346
+  rating_2_percentage: 15.5506
+  rating_3_count: 381
+  rating_3_percentage: 17.1236
+  rating_4_count: 253
+  rating_4_percentage: 11.3708
+  rating_5_count: 561
+  rating_5_percentage: 25.2135
+
+User Pattern Metrics:
+  total_anomalous_users: 1438
+  total_anomalous_reviews: 2225
+  avg_anomalies_per_user: 1.5473
+  median_anomalies_per_user: 1.0000
+  max_anomalies_per_user: 71
+  avg_total_reviews_per_user: 49.9172
+  median_total_reviews_per_user: 10.0000
+  avg_normal_reviews_per_user: 48.3700
+  median_normal_reviews_per_user: 9.0000
+  avg_anomaly_rate: 0.2282
+  median_anomaly_rate: 0.1111
+  users_with_all_anomalous: 133
+  users_with_high_anomaly_rate: 136
+  users_with_single_review: 130
+  users_with_multiple_reviews: 1308
+  anomaly_count_percentiles:
+    25th: 1.0000
+    50th: 1.0000
+    75th: 1.0000
+    90th: 2.0000
+    95th: 3.0000
+  total_reviews_percentiles:
+    25th: 4.0000
+    50th: 10.0000
+    75th: 30.7500
+    90th: 95.3000
+    95th: 203.1500
+  anomaly_rate_percentiles:
+    25th: 0.0387
+    50th: 0.1111
+    75th: 0.2964
+    90th: 0.5000
+    95th: 1.0000
+
+Length Analysis Metrics:
+  Text Char Stats:
+    mean: 799.03
+    median: 670.00
+    std: 593.74
+    min: 3
+    max: 2471
+    q25: 293.00
+    q75: 1205.00
+  Text Word Stats:
+    mean: 140.69
+    median: 121.00
+    std: 102.39
+    min: 1
+    max: 423
+    q25: 54.00
+    q75: 211.00
+  text_char_rating_correlation: 0.22
+  text_word_rating_correlation: 0.22
+  text_char_helpfulness_correlation: 0.10
+  text_word_helpfulness_correlation: 0.11
+  Review Data Char Stats:
+    mean: 853.38
+    median: 725.00
+    std: 597.74
+    min: 27
+    max: 2529
+    q25: 345.00
+    q75: 1263.00
+  Review Data Word Stats:
+    mean: 147.45
+    median: 128.00
+    std: 102.93
+    min: 3
+    max: 425
+    q25: 60.00
+    q75: 220.00
+  review_data_char_rating_correlation: 0.22
+  review_data_word_rating_correlation: 0.22
+  review_data_char_helpfulness_correlation: 0.10
+  review_data_word_helpfulness_correlation: 0.11
+  Title Char Stats:
+    mean: 33.36
+    median: 28.00
+    std: 20.82
+    min: 2
+    max: 128
+    q25: 18.00
+    q75: 45.00
+  Title Word Stats:
+    mean: 5.76
+    median: 5.00
+    std: 3.83
+    min: 1
+    max: 26
+    q25: 3.00
+    q75: 8.00
+  title_char_rating_correlation: 0.04
+  title_word_rating_correlation: 0.03
+  title_char_helpfulness_correlation: 0.02
+  title_word_helpfulness_correlation: 0.01
+  text_char_length_diff_pct: -89.53
+  text_word_length_diff_pct: -89.95
+  review_data_char_length_diff_pct: -90.84
+  review_data_word_length_diff_pct: -90.81
+  title_char_length_diff_pct: 36.57
+  title_word_length_diff_pct: 32.44
+
+Comparison with Original Data:
+  helpful_vote_mean_diff: 45.1082
+  helpful_vote_std_ratio: 10.3189
+  verified_purchase_mean_diff: -0.2359
+  verified_purchase_std_ratio: 1.1403
+  has_images_mean_diff: 0.1808
+  has_images_std_ratio: 2.9804
+  rating_diff_mean_diff: 0.7823
+  rating_diff_std_ratio: 2.9494
+  reviewer_review_count_mean_diff: 253.4912
+  reviewer_review_count_std_ratio: 1.7994
+  rating_vs_product_avg_abs_mean_diff: 1.1442
+  rating_vs_product_avg_abs_std_ratio: 1.8647
+  category_Books_pct_diff: 0.0000
