@@ -80,6 +80,7 @@ def create_basic_feature_distributions(anomalies_df: pd.DataFrame, output_dir: s
 def create_rating_comparison_plot(anomalies_df: pd.DataFrame, original_df: pd.DataFrame, output_dir: str):
     """
     Create rating distribution comparison between anomalies and normal reviews.
+    Uses normalized percentages to ensure both distributions are clearly visible.
     
     Args:
         anomalies_df: DataFrame containing anomaly detection results
@@ -89,35 +90,58 @@ def create_rating_comparison_plot(anomalies_df: pd.DataFrame, original_df: pd.Da
     if 'rating' not in anomalies_df.columns:
         return
 
-    plt.figure(figsize=(12, 8))
-
-    anomaly_rating_counts = anomalies_df['rating'].value_counts().sort_index()
-    plt.bar(anomaly_rating_counts.index - 0.2, anomaly_rating_counts.values,
-            alpha=0.7, width=0.4, label='Anomalies', color='red')
-
+    os.makedirs(output_dir, exist_ok=True)
+    
     if original_df is not None and 'rating' in original_df.columns:
         # Get normal data (exclude anomalies)
         anomaly_indices = set(anomalies_df.index)
         normal_mask = ~original_df.index.isin(anomaly_indices)
         normal_ratings = original_df.loc[normal_mask, 'rating']
-
+        
         if len(normal_ratings) > 0:
-            normal_rating_counts = normal_ratings.value_counts().sort_index()
-            plt.bar(normal_rating_counts.index + 0.2, normal_rating_counts.values,
-                    alpha=0.7, width=0.4, label='Normal Reviews', color='blue')
+            # Create normalized percentage comparison (primary visualization)
+            create_normalized_rating_comparison(anomalies_df, normal_ratings, output_dir)
 
-    plt.title('Rating Distribution: Anomalies vs Normal Reviews')
+
+def create_normalized_rating_comparison(anomalies_df: pd.DataFrame, normal_ratings: pd.Series, output_dir: str):
+    """Create normalized percentage-based rating distribution comparison."""
+    plt.figure(figsize=(12, 8))
+
+    # Calculate percentages
+    anomaly_rating_pcts = anomalies_df['rating'].value_counts(normalize=True).sort_index() * 100
+    normal_rating_pcts = normal_ratings.value_counts(normalize=True).sort_index() * 100
+
+    # Ensure all ratings 1-5 are present
+    all_ratings = range(1, 6)
+    anomaly_pcts = [anomaly_rating_pcts.get(rating, 0) for rating in all_ratings]
+    normal_pcts = [normal_rating_pcts.get(rating, 0) for rating in all_ratings]
+
+    x = np.arange(len(all_ratings))
+    width = 0.35
+
+    plt.bar(x - width/2, normal_pcts, width, label='Normal Reviews', color='blue', alpha=0.7)
+    plt.bar(x + width/2, anomaly_pcts, width, label='Anomalies', color='red', alpha=0.7)
+
+    plt.title('Rating Distribution Comparison (Percentages)')
     plt.xlabel('Rating')
-    plt.ylabel('Count (Log Scale)')
-    plt.yscale('log')
-    plt.xticks(range(1, 6))
+    plt.ylabel('Percentage (%)')
+    plt.xticks(x, all_ratings)
     plt.legend()
     plt.grid(True, alpha=0.3)
-    plt.tight_layout()
 
-    os.makedirs(output_dir, exist_ok=True)
+    # Add percentage labels on bars
+    for i, (normal_pct, anomaly_pct) in enumerate(zip(normal_pcts, anomaly_pcts)):
+        if normal_pct > 0:
+            plt.text(i - width/2, normal_pct + 0.5, f'{normal_pct:.1f}%', 
+                    ha='center', va='bottom', fontsize=9)
+        if anomaly_pct > 0:
+            plt.text(i + width/2, anomaly_pct + 0.5, f'{anomaly_pct:.1f}%', 
+                    ha='center', va='bottom', fontsize=9)
+
+    plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'rating_distribution_comparison.png'), dpi=300, bbox_inches='tight')
     plt.close()
+    print(f"✓ Saved normalized rating comparison to: {os.path.join(output_dir, 'rating_distribution_comparison.png')}")
 
 
 def create_rating_vs_rating_diff_analysis(anomalies_df: pd.DataFrame, original_df: pd.DataFrame, output_dir: str):
