@@ -24,12 +24,12 @@ def load_data_from_csv(csv_path: str, max_rows: int = None) -> pd.DataFrame:
 
 def build_features_data(df: pd.DataFrame) -> np.ndarray:
     """
-    Build features from data for malicious intent detection.
+    Build features from data for anomaly detection.
     Args:
         df: DataFrame with review data
         
     Returns:
-        Feature array for clustering
+        Feature array for anomaly detection
     """
     print("Building features from data...")
     
@@ -85,9 +85,9 @@ def check_outliers_simple(df: pd.DataFrame):
         print(f"  Max/95th ratio: {ratio:.1f}x")
         
         if ratio > 10:
-            print(f"  🚨 PROBLEM: Extreme outliers detected!")
+            print(f"   PROBLEM: Extreme outliers detected!")
             print(f"     Top 5 values: {sorted(data.nlargest(5).tolist(), reverse=True)}")
         else:
-            print(f"  ✅ Outliers look reasonable")
+            print(f"   Outliers look reasonable")
         print()
 

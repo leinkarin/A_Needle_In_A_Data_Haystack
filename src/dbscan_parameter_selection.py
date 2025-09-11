@@ -27,7 +27,6 @@ def save_k_distance_plot(k_dist: np.ndarray, out_path: str, k: int, category: st
     plt.figure(figsize=(10, 6))
     plt.plot(k_dist)
     
-    # Create title with category if provided
     if category:
         title = f"k-distance graph (sorted) for k={k} - {category}"
     else:
@@ -37,14 +36,12 @@ def save_k_distance_plot(k_dist: np.ndarray, out_path: str, k: int, category: st
     plt.xlabel("Points sorted by distance")
     plt.ylabel(f"Distance to {k}-th nearest neighbor")
     
-    # Add vertical grid lines every 0.1 units on the y-axis for easier eps selection
     y_min, y_max = plt.ylim()
     grid_lines = np.arange(0, y_max + 0.1, 0.1)
     for line in grid_lines:
         if line <= y_max:
             plt.axhline(y=line, color='lightgray', linestyle='--', alpha=0.7, linewidth=0.5)
     
-    # Add major grid for better readability
     plt.grid(True, alpha=0.3)
     
     plt.tight_layout()
@@ -91,10 +88,8 @@ def extract_category_from_path(csv_path: str) -> str:
     Returns:
         Category name extracted from the file path
     """
-    # Get the filename without path and extension
     filename = os.path.splitext(os.path.basename(csv_path))[0]
     
-    # Remove common suffixes like '_test', '_train', '_val'
     suffixes_to_remove = ['_test', '_train', '_val']
     category = filename
     for suffix in suffixes_to_remove:
@@ -102,7 +97,6 @@ def extract_category_from_path(csv_path: str) -> str:
             category = category[:-len(suffix)]
             break
     
-    # Convert underscores to spaces and capitalize words for display
     category_display = category.replace('_', ' ').title()
     
     return category_display
@@ -116,7 +110,6 @@ def main():
     
     args = parser.parse_args()
     
-    # Extract category name from CSV path
     category = extract_category_from_path(args.csv_path)
     print(f"Detected category: {category}")
     

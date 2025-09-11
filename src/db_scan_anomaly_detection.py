@@ -40,21 +40,6 @@ class DBScanAnomalyDetector:
 
         return self.cluster_labels, self.anomaly_indices
 
-    # def _scan(self, batch: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    #     dbscan = DBSCAN(eps=self.eps, min_samples=self.min_samples)
-    #     cluster_labels = dbscan.fit_predict(batch)
-        
-    #     core_indices = dbscan.core_sample_indices_.copy()
-    #     noise_indices = np.where(cluster_labels == -1)[0]
-
-    #     sorted_noise_indices, _ = self._sort_noise_points_by_distance(
-    #         batch, noise_indices, core_indices
-    #     )
-        
-    #     del dbscan, core_indices, noise_indices
-        
-    #     return cluster_labels, sorted_noise_indices
-
     def _scan(self, batch: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         
         process = psutil.Process(os.getpid())
@@ -94,7 +79,7 @@ class DBScanAnomalyDetector:
             core_indices: Indices of core points in the batch
 
         Returns:
-            Tuple[np.ndarray, np.ndarray]: Sorted noise indices and their minimum distances to core points
+            Sorted noise indices and their minimum distances to core points
         """
 
         noise_indices = np.asarray(noise_indices, dtype=int)
