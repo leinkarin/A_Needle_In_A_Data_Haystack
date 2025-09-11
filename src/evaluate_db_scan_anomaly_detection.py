@@ -28,6 +28,7 @@ class AnomalyDetectionEvaluator:
         Args:
             results_file: Path to DBSCAN anomaly detection results CSV
             original_data_file: Path to original dataset (optional, for comparison)
+            category: The category of the reviews
         """
         self.results_file = results_file
         self.original_data_file = original_data_file
@@ -79,7 +80,7 @@ class AnomalyDetectionEvaluator:
             self.original_df = pd.read_csv(self.original_data_file)
             print(f"✓ Loaded {len(self.original_df)} original records")
         else:
-            print("⚠️ Original data file not provided or not found")
+            print("Original data file not provided or not found")
 
     def evaluate_anomaly_characteristics(self) -> Dict:
         """
@@ -94,7 +95,6 @@ class AnomalyDetectionEvaluator:
 
         results = {}
 
-        # Basic statistics
         results['total_anomalies'] = len(self.anomalies_df)
 
         if self.original_df is not None:
@@ -147,7 +147,7 @@ class AnomalyDetectionEvaluator:
             Dictionary with comparison metrics
         """
         if self.original_df is None:
-            print("⚠️ Cannot compare with original data - file not provided")
+            print("Cannot compare with original data - file not provided")
             return {}
 
         print("\n" + "=" * 60)
@@ -200,17 +200,6 @@ class AnomalyDetectionEvaluator:
                                 anomaly_chars: dict = None, basic_results: dict = None,
                                 user_results: dict = None, length_results: dict = None,
                                 comparison_results: dict = None):
-        """
-        Generate a comprehensive summary report.
-        
-        Args:
-            output_file: Path to save the report
-            anomaly_chars: Pre-computed anomaly characteristics (optional)
-            basic_results: Pre-computed basic metrics analysis results (optional)
-            user_results: Pre-computed user analysis results (optional)
-            length_results: Pre-computed length analysis results (optional)
-            comparison_results: Pre-computed comparison results (optional)
-        """
         print(f"\nGenerating summary report: {output_file}")
         anomaly_patterns = basic_results
         user_patterns = user_results
@@ -327,12 +316,6 @@ class AnomalyDetectionEvaluator:
         print(f"✓ Summary report saved to: {output_file}")
 
     def run_complete_evaluation(self, output_dir: str = "evaluation_results"):
-        """
-        Run complete evaluation pipeline.
-        
-        Args:
-            output_dir: Directory to save all results
-        """
         category_dir = os.path.join(output_dir, self.category)
         os.makedirs(category_dir, exist_ok=True)
 
@@ -380,7 +363,6 @@ class AnomalyDetectionEvaluator:
 
 
 def main():
-    """Main function for command-line usage."""
     parser = argparse.ArgumentParser(
         description="Evaluate DBSCAN anomaly detection results",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -424,12 +406,12 @@ def main():
     print("=" * 80)
 
     if not os.path.exists(args.anomaly_data_file):
-        print(f"❌ Anomaly data file not found: {args.anomaly_data_file}")
+        print(f"Anomaly data file not found: {args.anomaly_data_file}")
         print("Please provide a valid path using --anomaly-data-file")
         return
 
     if args.original_data and not os.path.exists(args.original_data):
-        print(f"❌ Original data file not found: {args.original_data}")
+        print(f"Original data file not found: {args.original_data}")
         print("Please provide a valid path using --original-data")
         return
 

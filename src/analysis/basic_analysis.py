@@ -11,13 +11,7 @@ sns.set_palette("husl")
 
 
 def create_rating_distribution_plot(anomalies_df: pd.DataFrame, output_dir: str):
-    """
-    Create a standalone rating distribution plot.
-    
-    Args:
-        anomalies_df: DataFrame containing anomaly detection results
-        output_dir: Directory to save the plot
-    """
+    """Create rating distribution plot for anomalies."""
     if 'rating' not in anomalies_df.columns:
         print("Warning: 'rating' column not found in DataFrame")
         return
@@ -39,13 +33,7 @@ def create_rating_distribution_plot(anomalies_df: pd.DataFrame, output_dir: str)
 
 
 def create_basic_feature_distributions(anomalies_df: pd.DataFrame, output_dir: str):
-    """
-    Create individual feature distribution plots for anomalies.
-    
-    Args:
-        anomalies_df: DataFrame containing anomaly detection results
-        output_dir: Directory to save plots
-    """
+    """Create feature distribution plots for anomalies."""
 
     feature_columns = ['helpful_vote', 'rating_diff', 'reviewer_review_count']
     available_features = [col for col in feature_columns if col in anomalies_df.columns]
@@ -78,40 +66,28 @@ def create_basic_feature_distributions(anomalies_df: pd.DataFrame, output_dir: s
 
 
 def create_rating_comparison_plot(anomalies_df: pd.DataFrame, original_df: pd.DataFrame, output_dir: str):
-    """
-    Create rating distribution comparison between anomalies and normal reviews.
-    Uses normalized percentages to ensure both distributions are clearly visible.
-    
-    Args:
-        anomalies_df: DataFrame containing anomaly detection results
-        original_df: Optional original dataset for comparison plots
-        output_dir: Directory to save plots
-    """
+    """Create rating distribution comparison between anomalies and normal reviews."""
     if 'rating' not in anomalies_df.columns:
         return
 
     os.makedirs(output_dir, exist_ok=True)
     
     if original_df is not None and 'rating' in original_df.columns:
-        # Get normal data (exclude anomalies)
         anomaly_indices = set(anomalies_df.index)
         normal_mask = ~original_df.index.isin(anomaly_indices)
         normal_ratings = original_df.loc[normal_mask, 'rating']
         
         if len(normal_ratings) > 0:
-            # Create normalized percentage comparison (primary visualization)
             create_normalized_rating_comparison(anomalies_df, normal_ratings, output_dir)
 
 
 def create_normalized_rating_comparison(anomalies_df: pd.DataFrame, normal_ratings: pd.Series, output_dir: str):
-    """Create normalized percentage-based rating distribution comparison."""
+    """Create normalized percentage-based rating comparison."""
     plt.figure(figsize=(12, 8))
 
-    # Calculate percentages
     anomaly_rating_pcts = anomalies_df['rating'].value_counts(normalize=True).sort_index() * 100
     normal_rating_pcts = normal_ratings.value_counts(normalize=True).sort_index() * 100
 
-    # Ensure all ratings 1-5 are present
     all_ratings = range(1, 6)
     anomaly_pcts = [anomaly_rating_pcts.get(rating, 0) for rating in all_ratings]
     normal_pcts = [normal_rating_pcts.get(rating, 0) for rating in all_ratings]
@@ -129,7 +105,6 @@ def create_normalized_rating_comparison(anomalies_df: pd.DataFrame, normal_ratin
     plt.legend()
     plt.grid(True, alpha=0.3)
 
-    # Add percentage labels on bars
     for i, (normal_pct, anomaly_pct) in enumerate(zip(normal_pcts, anomaly_pcts)):
         if normal_pct > 0:
             plt.text(i - width/2, normal_pct + 0.5, f'{normal_pct:.1f}%', 
@@ -145,14 +120,7 @@ def create_normalized_rating_comparison(anomalies_df: pd.DataFrame, normal_ratin
 
 
 def create_rating_vs_rating_diff_analysis(anomalies_df: pd.DataFrame, original_df: pd.DataFrame, output_dir: str):
-    """
-    Create rating vs rating difference analysis plot.
-    
-    Args:
-        anomalies_df: DataFrame containing anomaly detection results
-        original_df: Original dataset for comparison
-        output_dir: Directory to save plots
-    """
+    """Create rating vs rating difference analysis plot."""
     if ('rating' in anomalies_df.columns and 'rating_diff' in anomalies_df.columns and
             original_df is not None and 'rating' in original_df.columns and 'rating_diff' in original_df.columns):
 
@@ -206,7 +174,7 @@ def create_rating_vs_rating_diff_analysis(anomalies_df: pd.DataFrame, original_d
 
 
 def create_comparison_plots(anomalies_df: pd.DataFrame, original_df: pd.DataFrame, output_dir: str):
-    """Create additional comparison plots between anomalies and normal data."""
+    """Create comparison plots between anomalies and normal data."""
 
     numerical_features = ['helpful_vote', 'reviewer_review_count', 'rating_diff']
     available_numerical = [col for col in numerical_features
@@ -222,13 +190,11 @@ def create_comparison_plots(anomalies_df: pd.DataFrame, original_df: pd.DataFram
             normal_data = original_df.loc[normal_mask, feature].dropna()
             anomaly_data = anomalies_df[feature].dropna()
 
-            # Create box plot
             data_to_plot = [normal_data, anomaly_data]
             labels = ['Normal Reviews', 'Anomalies']
 
             bp = plt.boxplot(data_to_plot, labels=labels, patch_artist=True)
 
-            # Color the boxes
             bp['boxes'][0].set_facecolor('lightblue')
             bp['boxes'][1].set_facecolor('lightcoral')
 
@@ -236,7 +202,6 @@ def create_comparison_plots(anomalies_df: pd.DataFrame, original_df: pd.DataFram
             plt.ylabel(feature.replace("_", " ").title())
             plt.grid(True, alpha=0.3)
 
-            # Add some statistics as text
             normal_mean = normal_data.mean()
             anomaly_mean = anomaly_data.mean()
             plt.text(0.02, 0.98, f'Normal mean: {normal_mean:.2f}\nAnomaly mean: {anomaly_mean:.2f}',
@@ -306,22 +271,13 @@ def create_basic_metrics_visualization(anomalies_df: pd.DataFrame, original_df: 
 
 
 def analyze_anomaly_patterns(anomalies_df: pd.DataFrame) -> Dict:
-    """
-    Analyze patterns in the detected anomalies.
-    
-    Args:
-        anomalies_df: DataFrame containing anomaly detection results
-        
-    Returns:
-        Dictionary with pattern analysis results
-    """
+    """Analyze patterns in detected anomalies."""
     print("\n" + "=" * 60)
     print("ANOMALY PATTERN ANALYSIS")
     print("=" * 60)
 
     results = {}
 
-    # Rating vs Predicted Rating Analysis
     if 'rating' in anomalies_df.columns and 'predicted_rating' in anomalies_df.columns:
         print("Rating vs Predicted Rating Analysis:")
 
@@ -332,7 +288,6 @@ def analyze_anomaly_patterns(anomalies_df: pd.DataFrame) -> Dict:
         print(f"  Mean rating difference: {mean_diff:.4f}")
         print(f"  Std rating difference: {std_diff:.4f}")
 
-        # Categorize by rating difference
         positive_diff = rating_diff > 0
         negative_diff = rating_diff < 0
 
@@ -348,7 +303,6 @@ def analyze_anomaly_patterns(anomalies_df: pd.DataFrame) -> Dict:
         results['positive_diff_percentage'] = positive_diff.mean() * 100
         results['negative_diff_percentage'] = negative_diff.mean() * 100
 
-    # Helpful votes analysis
     if 'helpful_vote' in anomalies_df.columns:
         print(f"\nHelpful Votes Analysis:")
         helpful_votes = anomalies_df['helpful_vote']
@@ -368,7 +322,6 @@ def analyze_anomaly_patterns(anomalies_df: pd.DataFrame) -> Dict:
         results['low_votes_percentage'] = low_votes / len(helpful_votes) * 100
         results['high_votes_percentage'] = high_votes / len(helpful_votes) * 100
 
-    # Verified purchase analysis
     if 'verified_purchase' in anomalies_df.columns:
         print(f"\nVerified Purchase Analysis:")
         verified = anomalies_df['verified_purchase']
@@ -384,7 +337,6 @@ def analyze_anomaly_patterns(anomalies_df: pd.DataFrame) -> Dict:
         results['verified_percentage'] = verified_count / len(verified) * 100
         results['unverified_percentage'] = unverified_count / len(verified) * 100
 
-    # Has images analysis
     if 'has_images' in anomalies_df.columns:
         print(f"\nImages Analysis:")
         has_images = anomalies_df['has_images']
@@ -405,25 +357,12 @@ def analyze_anomaly_patterns(anomalies_df: pd.DataFrame) -> Dict:
 
 def run_basic_metrics_analysis(anomalies_df: pd.DataFrame, original_df: pd.DataFrame = None,
                                output_dir: str = "evaluation_plots") -> Dict:
-    """
-    Run complete basic metrics analysis including both analysis and visualizations.
-    
-    Args:
-        anomalies_df: DataFrame containing anomaly detection results
-        original_df: Optional original dataset for comparison
-        output_dir: Directory to save plots and results
-        
-    Returns:
-        Dictionary with all basic metrics analysis results
-    """
-    # Run analysis
+    """Run complete basic metrics analysis and visualizations."""
     analysis_results = analyze_anomaly_patterns(anomalies_df)
 
-    # Create visualizations if original data is available
     if original_df is not None:
         create_basic_metrics_visualization(anomalies_df, original_df, output_dir)
     else:
-        # Still create basic plots that don't require comparison
         create_rating_distribution_plot(anomalies_df, output_dir)
         create_basic_feature_distributions(anomalies_df, output_dir)
 
