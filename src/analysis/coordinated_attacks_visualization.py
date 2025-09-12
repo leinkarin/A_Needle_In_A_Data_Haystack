@@ -36,21 +36,13 @@ def preprocess_texts(texts: List[str]) -> List[str]:
     cleaned_texts = []
 
     for text in texts:
-        # Convert to lowercase
         text = text.lower()
-
-        # Remove special characters but keep spaces
         text = re.sub(r'[^a-zA-Z0-9\s]', ' ', text)
-
-        # Remove extra whitespace
         text = re.sub(r'\s+', ' ', text).strip()
-
-        # Remove very common filler words that might inflate similarity
         filler_words = ['this', 'that', 'very', 'really', 'just', 'like', 'good', 'great', 'nice', 'bad']
         words = text.split()
         words = [word for word in words if word not in filler_words or len(words) > 10]
         text = ' '.join(words)
-
         cleaned_texts.append(text)
 
     return cleaned_texts
@@ -143,64 +135,116 @@ def _detect_user_spam_patterns(similarity_matrix: np.ndarray, valid_df: pd.DataF
     return spam_patterns
 
 
-def _detect_review_templates(similarity_matrix: np.ndarray, valid_df: pd.DataFrame,
-                             valid_indices: List[int]) -> List[Dict]:
-    """Detect review templates using clustering."""
-    templates = []
-
+def create_spam_patterns_network_graph(anomalies_df: pd.DataFrame, output_dir: str, similarity_matrix, anomalies_indices):
+    """Create network graph visualization specifically for spam patterns."""
+    
     try:
-        from sklearn.cluster import DBSCAN
+        import networkx as nx
+        from matplotlib.patches import Patch
 
-        # Use similarity as distance (1 - similarity)
-        distance_matrix = 1 - similarity_matrix
+        spam_patterns = _detect_user_spam_patterns(
+            similarity_matrix, anomalies_df, anomalies_indices
+        )
 
-        # DBSCAN clustering on similarity
-        clustering = DBSCAN(eps=0.25, min_samples=3, metric='precomputed')
-        cluster_labels = clustering.fit_predict(distance_matrix)
+        if not spam_patterns:
+            print("  ⚠️ No spam patterns found for network visualization")
+            return None, None
 
-        # Analyze clusters
-        unique_labels = set(cluster_labels)
-        for label in unique_labels:
-            if label != -1:  # Not noise
-                cluster_indices = np.where(cluster_labels == label)[0]
-                cluster_df_indices = [valid_indices[idx] for idx in cluster_indices]
+        G = nx.Graph()
+        node_colors = {}
+        node_sizes = {}
+        
+        if len(spam_patterns) <= 12:
+            colors = plt.cm.tab20(np.linspace(0, 1, max(len(spam_patterns), 12)))
+        else:
+            colors1 = plt.cm.tab20(np.linspace(0, 1, 20))
+            colors2 = plt.cm.Set3(np.linspace(0, 1, 12))
+            colors3 = plt.cm.Dark2(np.linspace(0, 1, 8))
+            colors = np.concatenate([colors1, colors2, colors3])[:len(spam_patterns)]
 
-                # Calculate cluster statistics
-                cluster_similarities = []
-                for i in cluster_indices:
-                    for j in cluster_indices:
-                        if i != j:
-                            cluster_similarities.append(similarity_matrix[i, j])
+        for i, pattern in enumerate(spam_patterns):
+            pattern_indices = pattern['indices']
+            pattern_color = colors[i]
 
-                if cluster_similarities:
-                    avg_similarity = np.mean(cluster_similarities)
+            for idx in pattern_indices:
+                if idx in anomalies_df.index:
+                    user_id = pattern['user_id']
+                    G.add_node(idx, user_id=user_id, type='spam', pattern=i)
+                    node_colors[idx] = pattern_color
+                    size = 200 + (pattern['avg_similarity'] * 300)
+                    node_sizes[idx] = size
 
-                    # Check user diversity
-                    if 'user_id' in valid_df.columns:
-                        users_in_cluster = valid_df.loc[cluster_df_indices, 'user_id'].unique()
-                        user_diversity = len(users_in_cluster) / len(cluster_indices)
-                    else:
-                        user_diversity = 1.0
+            for j, idx1 in enumerate(pattern_indices):
+                for idx2 in pattern_indices[j + 1:]:
+                    if (idx1 in anomalies_df.index and idx2 in anomalies_df.index and idx1 != idx2):
+                        G.add_edge(idx1, idx2, weight=pattern.get('avg_similarity', 0.7), pattern=i)
 
-                    templates.append({
-                        'template_id': label,
-                        'indices': cluster_df_indices,
-                        'size': len(cluster_indices),
-                        'avg_similarity': avg_similarity,
-                        'unique_users': len(users_in_cluster) if 'user_id' in valid_df.columns else 'unknown',
-                        'user_diversity': user_diversity,
-                        'confidence': 'HIGH' if avg_similarity > 0.8 and user_diversity < 0.8 else 'MEDIUM'
-                    })
+        if len(G.nodes()) == 0:
+            print("  ⚠️ No valid nodes for spam patterns visualization")
+            return None, None
 
+        fig, ax = plt.subplots(1, 1, figsize=(12, 10))
+        pos = nx.spring_layout(G, k=1.5, iterations=50)
+
+        for i, pattern in enumerate(spam_patterns):
+            pattern_indices = pattern['indices']
+            pattern_color = colors[i]
+            
+            pattern_edges = []
+            pattern_edge_weights = []
+            
+            for j, idx1 in enumerate(pattern_indices):
+                for idx2 in pattern_indices[j + 1:]:
+                    if (idx1 in anomalies_df.index and idx2 in anomalies_df.index and 
+                        G.has_edge(idx1, idx2)):
+                        pattern_edges.append((idx1, idx2))
+                        pattern_edge_weights.append(G[idx1][idx2]['weight'])
+            
+            if pattern_edges:
+                edge_widths = [w * 3 for w in pattern_edge_weights]
+                nx.draw_networkx_edges(G, pos, edgelist=pattern_edges, 
+                                     edge_color=pattern_color, alpha=0.6, 
+                                     width=edge_widths, ax=ax)
+
+        node_color_list = [node_colors.get(node, 'gray') for node in G.nodes()]
+        node_size_list = [node_sizes.get(node, 200) for node in G.nodes()]
+
+        nx.draw_networkx_nodes(G, pos, node_color=node_color_list,
+                               node_size=node_size_list, alpha=0.8, ax=ax)
+
+        ax.set_title(f'Spam Patterns Network\n({len(spam_patterns)} patterns detected)',
+                     fontweight='bold', fontsize=14)
+        ax.axis('off')
+
+        pattern_info = [(pattern, colors[i], i) for i, pattern in enumerate(spam_patterns)]
+        pattern_info.sort(key=lambda x: x[0]['review_count'])
+        
+        legend_elements = []
+        for pattern, color, original_idx in pattern_info:
+            label = f"Pattern {original_idx+1} ({pattern['review_count']} reviews)"
+            legend_elements.append(Patch(facecolor=color, alpha=0.8, label=label))
+        
+        ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1.02, 1))
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, 'spam_patterns_network.png'), dpi=300, bbox_inches='tight')
+        plt.close()
+
+        print(f"  ✓ Spam patterns network: {len(G.nodes())} nodes, {len(G.edges())} edges, {len(spam_patterns)} patterns")
+
+        return G, spam_patterns
+
+    except ImportError:
+        print("  ⚠️ NetworkX not available for spam patterns visualization")
+        return None, None
     except Exception as e:
-        print(f"  ⚠️ Error in template detection: {e}")
+        print(f"  ⚠️ Error creating spam patterns network graph: {e}")
+        return None, None
 
-    return templates
 
-
-def create_similarity_network_graph(anomalies_df: pd.DataFrame, output_dir: str, similarity_matrix, anomalies_indices):
-    """Create network graph visualization of similarity patterns between anomalies."""
-
+def create_coordinated_attacks_network_graph(anomalies_df: pd.DataFrame, output_dir: str, similarity_matrix, anomalies_indices):
+    """Create network graph visualization specifically for coordinated attacks."""
+    
     try:
         import networkx as nx
         from matplotlib.patches import Patch
@@ -209,115 +253,101 @@ def create_similarity_network_graph(anomalies_df: pd.DataFrame, output_dir: str,
             similarity_matrix, anomalies_df, anomalies_indices
         )
 
-        coordinated_attacks = {
-            'num_groups': len(coordinated_groups),
-            'total_reviews_in_groups': sum(len(group['indices']) for group in coordinated_groups),
-            'groups': coordinated_groups
-        }
-
-        spam_patterns = _detect_user_spam_patterns(
-            similarity_matrix, anomalies_df, anomalies_indices
-        )
-
-        if not coordinated_attacks.get('groups') and not spam_patterns:
-            print("  ⚠️ No coordinated attacks or spam patterns found for network visualization")
+        if not coordinated_groups:
+            print("No coordinated attacks found for network visualization")
             return None, None
 
-        # Create network graph
         G = nx.Graph()
-
-        # Color mapping for different types
         node_colors = {}
         node_sizes = {}
+        
+        if len(coordinated_groups) <= 12:
+            colors = plt.cm.tab10(np.linspace(0, 1, max(len(coordinated_groups), 10)))
+        else:
+            colors1 = plt.cm.tab10(np.linspace(0, 1, 10))
+            colors2 = plt.cm.Set1(np.linspace(0, 1, 9))
+            colors3 = plt.cm.Dark2(np.linspace(0, 1, 8))
+            colors4 = plt.cm.Set3(np.linspace(0, 1, 12))
+            colors = np.concatenate([colors1, colors2, colors3, colors4])[:len(coordinated_groups)]
 
-        # Add coordinated attack groups
-        coord_groups = coordinated_attacks.get('groups', [])
-        for i, group in enumerate(coord_groups):
+        for i, group in enumerate(coordinated_groups):
             group_indices = group['indices']
-            group_color = plt.cm.Set1(i % 9)
+            group_color = colors[i]
 
-            # Add nodes
             for idx in group_indices:
                 if idx in anomalies_df.index:
                     user_id = anomalies_df.loc[idx, 'user_id'] if 'user_id' in anomalies_df.columns else f"user_{idx}"
                     G.add_node(idx, user_id=user_id, type='coordinated', group=i)
                     node_colors[idx] = group_color
-                    node_sizes[idx] = 300
+                    base_size = 300
+                    confidence_multiplier = 1.5 if group['confidence'] == 'HIGH' else 1.0
+                    node_sizes[idx] = base_size * confidence_multiplier
 
-            # Add edges within group (high similarity)
             for j, idx1 in enumerate(group_indices):
                 for idx2 in group_indices[j + 1:]:
                     if idx1 in anomalies_df.index and idx2 in anomalies_df.index and idx1 != idx2:
-                        G.add_edge(idx1, idx2, weight=group.get('avg_similarity', 0.8), type='coordinated')
-
-        for i, pattern in enumerate(spam_patterns):
-            pattern_indices = pattern['indices']
-            spam_color = 'red'
-
-            # Add nodes
-            for idx in pattern_indices:
-                if idx in anomalies_df.index and idx not in node_colors:
-                    user_id = pattern['user_id']
-                    G.add_node(idx, user_id=user_id, type='spam', pattern=i)
-                    node_colors[idx] = spam_color
-                    node_sizes[idx] = 200
-
-            # Add edges within spam pattern
-            for j, idx1 in enumerate(pattern_indices):
-                for idx2 in pattern_indices[j + 1:]:
-                    if (idx1 in anomalies_df.index and idx2 in anomalies_df.index and
-                            idx1 != idx2 and not G.has_edge(idx1, idx2)):
-                        G.add_edge(idx1, idx2, weight=pattern.get('avg_similarity', 0.7), type='spam')
+                        G.add_edge(idx1, idx2, weight=group.get('avg_similarity', 0.8), group=i)
 
         if len(G.nodes()) == 0:
-            print("  ⚠️ No valid nodes for network visualization")
+            print("No valid nodes for coordinated attacks visualization")
             return None, None
 
-        # Create network visualization
         fig, ax = plt.subplots(1, 1, figsize=(12, 10))
+        pos = nx.spring_layout(G, k=2, iterations=50)
 
-        pos = nx.spring_layout(G, k=1, iterations=50)
+        for i, group in enumerate(coordinated_groups):
+            group_indices = group['indices']
+            group_color = colors[i]
+            
+            group_edges = []
+            group_edge_weights = []
+            
+            for j, idx1 in enumerate(group_indices):
+                for idx2 in group_indices[j + 1:]:
+                    if (idx1 in anomalies_df.index and idx2 in anomalies_df.index and 
+                        G.has_edge(idx1, idx2)):
+                        group_edges.append((idx1, idx2))
+                        group_edge_weights.append(G[idx1][idx2]['weight'])
+            
+            if group_edges:
+                edge_widths = [w * 4 for w in group_edge_weights]
+                nx.draw_networkx_edges(G, pos, edgelist=group_edges, 
+                                     edge_color=group_color, alpha=0.7, 
+                                     width=edge_widths, ax=ax)
 
-        # Draw edges
-        coord_edges = [(u, v) for u, v, d in G.edges(data=True) if d['type'] == 'coordinated']
-        spam_edges = [(u, v) for u, v, d in G.edges(data=True) if d['type'] == 'spam']
-
-        nx.draw_networkx_edges(G, pos, edgelist=coord_edges, edge_color='blue',
-                               alpha=0.6, width=2, ax=ax, label='Coordinated')
-        nx.draw_networkx_edges(G, pos, edgelist=spam_edges, edge_color='red',
-                               alpha=0.6, width=1, ax=ax, label='Spam')
-
-        # Draw nodes
         node_color_list = [node_colors.get(node, 'gray') for node in G.nodes()]
-        node_size_list = [node_sizes.get(node, 100) for node in G.nodes()]
+        node_size_list = [node_sizes.get(node, 300) for node in G.nodes()]
 
         nx.draw_networkx_nodes(G, pos, node_color=node_color_list,
                                node_size=node_size_list, alpha=0.8, ax=ax)
 
-        ax.set_title('Anomaly Similarity Network\n(Coordinated Attacks & Spam Patterns)',
+        ax.set_title(f'Coordinated Attacks Network\n({len(coordinated_groups)} groups detected)',
                      fontweight='bold', fontsize=14)
         ax.axis('off')
 
-        # Add legend
-        legend_elements = [
-            Patch(facecolor='blue', alpha=0.6, label=f'Coordinated Groups ({len(coord_groups)})'),
-            Patch(facecolor='red', alpha=0.6, label=f'Spam Patterns ({len(spam_patterns)})')
-        ]
-        ax.legend(handles=legend_elements, loc='upper right')
+        group_info = [(group, colors[i], i) for i, group in enumerate(coordinated_groups)]
+        group_info.sort(key=lambda x: x[0]['size'])
+        
+        legend_elements = []
+        for group, color, original_idx in group_info:
+            label = f"Group {original_idx+1} ({group['size']} reviews, {group['unique_users']} users)"
+            legend_elements.append(Patch(facecolor=color, alpha=0.8, label=label))
+        
+        ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1.02, 1))
 
         plt.tight_layout()
-        plt.savefig(os.path.join(output_dir, 'similarity_network_graph.png'), dpi=300, bbox_inches='tight')
+        plt.savefig(os.path.join(output_dir, 'coordinated_attacks_network.png'), dpi=300, bbox_inches='tight')
         plt.close()
 
-        print(f"  ✓ Similarity network graph: {len(G.nodes())} nodes, {len(G.edges())} edges")
+        print(f"  ✓ Coordinated attacks network: {len(G.nodes())} nodes, {len(G.edges())} edges, {len(coordinated_groups)} groups")
 
-        return G, {'coord_groups': coord_groups, 'spam_patterns': spam_patterns}
+        return G, coordinated_groups
 
     except ImportError:
-        print("  ⚠️ NetworkX not available for network visualization")
+        print("NetworkX not available for coordinated attacks visualization")
         return None, None
     except Exception as e:
-        print(f"  ⚠️ Error creating similarity network graph: {e}")
+        print(f"Error creating coordinated attacks network graph: {e}")
         return None, None
 
 
@@ -349,4 +379,29 @@ def run_coordinated_attacks_analysis(anomalies_df: pd.DataFrame, output_dir: str
     tfidf_matrix = vectorizer.fit_transform(cleaned_texts)
     similarity_matrix = cosine_similarity(tfidf_matrix)
     anomalies_indices = anomalies_df.index.tolist()
-    create_similarity_network_graph(anomalies_df, attacks_plots_dir, similarity_matrix, anomalies_indices)
+    
+    print("Creating spam patterns network visualization...")
+    spam_graph, spam_patterns = create_spam_patterns_network_graph(
+        anomalies_df, attacks_plots_dir, similarity_matrix, anomalies_indices
+    )
+    
+    print("Creating coordinated attacks network visualization...")
+    coord_graph, coordinated_groups = create_coordinated_attacks_network_graph(
+        anomalies_df, attacks_plots_dir, similarity_matrix, anomalies_indices
+    )
+    
+    results = {
+        'spam_patterns': {
+            'count': len(spam_patterns) if spam_patterns else 0,
+            'patterns': spam_patterns or [],
+            'graph': spam_graph
+        },
+        'coordinated_attacks': {
+            'count': len(coordinated_groups) if coordinated_groups else 0,
+            'groups': coordinated_groups or [],
+            'total_reviews_in_groups': sum(len(group['indices']) for group in (coordinated_groups or [])),
+            'graph': coord_graph
+        }
+    }
+    
+    return results
