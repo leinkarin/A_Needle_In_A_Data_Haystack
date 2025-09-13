@@ -10,13 +10,14 @@ plt.style.use('default')
 sns.set_palette("husl")
 
 
-def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_dir: str):
+def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_dir: str, category: str = "books"):
     """
     Create visualizations for user anomaly analysis.
     
     Args:
         user_analysis_data: DataFrame with user anomaly analysis results
         output_dir: Directory to save plots
+        category: Category name
     """
     print("Creating user anomaly analysis visualizations...")
 
@@ -28,7 +29,8 @@ def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_
     plt.hist(user_analysis_data['anomaly_count'], bins=30, alpha=0.7, color='lightcoral', edgecolor='black')
     plt.xlabel('Number of Anomalous Reviews per User')
     plt.ylabel('Number of Users')
-    plt.title('Distribution of Anomalous Reviews per User')
+    title = f'Distribution of Anomalous Reviews per User - {category}'
+    plt.title(title)
     plt.yscale('log')
     plt.grid(True, alpha=0.3)
 
@@ -48,7 +50,8 @@ def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_
     plt.hist(user_analysis_data['reviewer_review_count'], bins=30, alpha=0.7, color='lightblue', edgecolor='black')
     plt.xlabel('Total Reviews per User')
     plt.ylabel('Number of Users')
-    plt.title('Total Review Count Distribution (Users with Anomalies)')
+    title = f'Total Review Count Distribution (Users with Anomalies) - {category}'
+    plt.title(title)
     plt.yscale('log')
     plt.grid(True, alpha=0.3)
 
@@ -68,7 +71,8 @@ def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_
     plt.hist(user_analysis_data['anomaly_rate'], bins=30, alpha=0.7, color='orange', edgecolor='black')
     plt.xlabel('Anomaly Rate (Anomalous / Total Reviews)')
     plt.ylabel('Number of Users')
-    plt.title('Distribution of Anomaly Rates')
+    title = f'Distribution of Anomaly Rates - {category}'
+    plt.title(title)
     plt.grid(True, alpha=0.3)
 
     # Add statistics text
@@ -88,7 +92,8 @@ def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_
     plt.plot(normal_reviews_sorted, y, linewidth=2, color='green')
     plt.xlabel('Number of Normal Reviews per User')
     plt.ylabel('Cumulative Probability')
-    plt.title('Cumulative Distribution of Normal Reviews')
+    title = f'Cumulative Distribution of Normal Reviews - {category}'
+    plt.title(title)
     plt.xscale('log')
     plt.grid(True, alpha=0.3)
 
@@ -109,7 +114,8 @@ def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_
                 alpha=0.6, s=30, color='purple')
     plt.xlabel('Total Reviews per User')
     plt.ylabel('Anomaly Rate')
-    plt.title('Anomaly Rate vs Total Reviews')
+    title = f'Anomaly Rate vs Total Reviews - {category}'
+    plt.title(title)
     plt.xscale('log')
     plt.grid(True, alpha=0.3)
 
@@ -125,21 +131,16 @@ def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_
     print(f"  ✓ Saved {6} user anomaly analysis plots to: {output_dir}/")
 
 
-def create_user_behavior_analysis(anomalies_df: pd.DataFrame, output_dir: str):
+def create_user_behavior_analysis(anomalies_df: pd.DataFrame, output_dir: str, category: str = "books"):
     """
     Create comprehensive user behavior analysis from anomaly data.
     
     Args:
         anomalies_df: DataFrame containing anomaly detection results
         output_dir: Directory to save plots
+        category: Category name
     """
-    print("Creating user behavior analysis...")
 
-    if 'user_id' not in anomalies_df.columns or 'reviewer_review_count' not in anomalies_df.columns:
-        print("  ⚠️ Required columns 'user_id' and 'reviewer_review_count' not found")
-        return
-
-    # Create user analysis data
     user_anomaly_counts = anomalies_df.groupby('user_id').size().reset_index(name='anomaly_count')
     user_total_counts = anomalies_df.groupby('user_id')['reviewer_review_count'].first().reset_index()
     user_analysis = pd.merge(user_anomaly_counts, user_total_counts, on='user_id', how='left')
@@ -148,12 +149,12 @@ def create_user_behavior_analysis(anomalies_df: pd.DataFrame, output_dir: str):
     user_analysis = user_analysis.dropna()
 
     if len(user_analysis) > 0:
-        create_user_anomaly_visualizations(user_analysis, output_dir)
+        create_user_anomaly_visualizations(user_analysis, output_dir, category)
     else:
         print("  ⚠️ No valid user analysis data available")
 
 
-def create_top_users_analysis(anomalies_df: pd.DataFrame, output_dir: str, top_n: int = 20):
+def create_top_users_analysis(anomalies_df: pd.DataFrame, output_dir: str, top_n: int = 20, category: str = "books"):
     """
     Create analysis of top users by anomaly count.
     
@@ -161,6 +162,7 @@ def create_top_users_analysis(anomalies_df: pd.DataFrame, output_dir: str, top_n
         anomalies_df: DataFrame containing anomaly detection results
         output_dir: Directory to save plots
         top_n: Number of top users to analyze
+        category: Category name
     """
     print(f"Creating top {top_n} users analysis...")
 
@@ -185,7 +187,8 @@ def create_top_users_analysis(anomalies_df: pd.DataFrame, output_dir: str, top_n
 
     plt.yticks(y_pos, [f'User {uid}' for uid in user_anomaly_counts.index])
     plt.xlabel('Number of Anomalous Reviews')
-    plt.title(f'Top {top_n} Users by Anomaly Count', fontweight='bold')
+    title = f'Top {top_n} Users by Anomaly Count - {category}'
+    plt.title(title, fontweight='bold')
     plt.grid(True, alpha=0.3, axis='x')
 
     # Add value labels on bars
@@ -331,13 +334,14 @@ def analyze_user_anomaly_patterns(anomalies_df: pd.DataFrame) -> Dict:
     return results
 
 
-def run_user_analysis(anomalies_df: pd.DataFrame, output_dir: str = "evaluation_plots") -> Dict:
+def run_user_analysis(anomalies_df: pd.DataFrame, output_dir: str = "evaluation_plots", category: str = "books") -> Dict:
     """
     Run complete user analysis including both analysis and visualizations.
     
     Args:
         anomalies_df: DataFrame containing anomaly detection results
         output_dir: Directory to save plots and results
+        category: Category name
         
     Returns:
         Dictionary with all user analysis results
@@ -350,8 +354,8 @@ def run_user_analysis(anomalies_df: pd.DataFrame, output_dir: str = "evaluation_
     user_results = analyze_user_anomaly_patterns(anomalies_df)
 
     if 'user_id' in anomalies_df.columns and 'reviewer_review_count' in anomalies_df.columns:
-        create_user_behavior_analysis(anomalies_df, user_plots_dir)
-        create_top_users_analysis(anomalies_df, user_plots_dir)
+        create_user_behavior_analysis(anomalies_df, user_plots_dir, category)
+        create_top_users_analysis(anomalies_df, user_plots_dir, category=category)
     else:
         print("⚠️ Required user columns not found - skipping user visualizations")
 

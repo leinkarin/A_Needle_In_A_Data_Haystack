@@ -180,7 +180,7 @@ def analyze_review_length_anomalies(anomalies_df: pd.DataFrame, original_df: pd.
 
 
 def create_length_comparison_visualizations(anomalies_df: pd.DataFrame, original_df: pd.DataFrame,
-                                            length_analysis: dict, output_dir: str):
+                                            length_analysis: dict, output_dir: str, category: str = "books"):
     """
     Create comprehensive visualizations comparing review lengths between anomalous and normal reviews.
     
@@ -189,6 +189,7 @@ def create_length_comparison_visualizations(anomalies_df: pd.DataFrame, original
         original_df: DataFrame with original/normal reviews  
         length_analysis: Dictionary with length analysis results
         output_dir: Directory to save plots
+        category: Category name
     """
     print("  📊 Creating review length comparison visualizations...")
 
@@ -224,7 +225,8 @@ def create_length_comparison_visualizations(anomalies_df: pd.DataFrame, original
     plt.xscale('log')
     plt.xlabel('Character Count (log scale)')
     plt.ylabel('Density')
-    plt.title('Character Length Distribution: Anomalous vs Normal Reviews', fontweight='bold')
+    title = f'Character Length Distribution: Anomalous vs Normal Reviews - {category}'
+    plt.title(title, fontweight='bold')
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -242,7 +244,8 @@ def create_length_comparison_visualizations(anomalies_df: pd.DataFrame, original
     plt.xscale('log')
     plt.xlabel('Word Count (log scale)')
     plt.ylabel('Density')
-    plt.title('Word Length Distribution: Anomalous vs Normal Reviews', fontweight='bold')
+    title = f'Word Length Distribution: Anomalous vs Normal Reviews - {category}'
+    plt.title(title, fontweight='bold')
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -282,7 +285,8 @@ def create_length_comparison_visualizations(anomalies_df: pd.DataFrame, original
         table[(0, i)].set_facecolor('#4CAF50')
         table[(0, i)].set_text_props(weight='bold', color='white')
 
-    ax.set_title('Statistical Summary: Anomalous vs Normal Reviews', pad=20, fontweight='bold', fontsize=14)
+    title = f'Statistical Summary: Anomalous vs Normal Reviews - {category}'
+    ax.set_title(title, pad=20, fontweight='bold', fontsize=14)
 
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'length_statistics_summary.png'),
@@ -294,7 +298,7 @@ def create_length_comparison_visualizations(anomalies_df: pd.DataFrame, original
     print(f"  ✅ Length statistics summary saved to: length_analysis/length_statistics_summary.png")
 
 
-def create_detailed_length_analysis(anomalies_df: pd.DataFrame, original_df: pd.DataFrame, output_dir: str):
+def create_detailed_length_analysis(anomalies_df: pd.DataFrame, original_df: pd.DataFrame, output_dir: str, category: str = "books"):
     """
     Create detailed length analysis with multiple visualizations.
     
@@ -302,6 +306,7 @@ def create_detailed_length_analysis(anomalies_df: pd.DataFrame, original_df: pd.
         anomalies_df: DataFrame with anomalous reviews
         original_df: DataFrame with original/normal reviews
         output_dir: Directory to save plots
+        category: Category name
     """
     print("Creating detailed length analysis visualizations...")
 
@@ -333,26 +338,26 @@ def create_detailed_length_analysis(anomalies_df: pd.DataFrame, original_df: pd.
 
     # 1. Box plots comparison
     create_length_boxplots(original_char_lengths, anomaly_char_lengths,
-                           original_word_lengths, anomaly_word_lengths, output_dir)
+                           original_word_lengths, anomaly_word_lengths, output_dir, category)
 
     # 2. Cumulative distribution comparison
     create_length_cumulative_distributions(original_char_lengths, anomaly_char_lengths,
-                                           original_word_lengths, anomaly_word_lengths, output_dir)
+                                           original_word_lengths, anomaly_word_lengths, output_dir, category)
 
     # 3. Length vs rating analysis
     if 'rating' in anomalies_df.columns and 'rating' in original_df.columns:
-        create_length_vs_rating_analysis(anomalies_df, original_df, primary_text_col, output_dir)
+        create_length_vs_rating_analysis(anomalies_df, original_df, primary_text_col, output_dir, category)
 
     # 4. Extreme length analysis
     create_extreme_length_analysis(original_char_lengths, anomaly_char_lengths,
-                                   original_word_lengths, anomaly_word_lengths, output_dir)
+                                   original_word_lengths, anomaly_word_lengths, output_dir, category)
 
     print(f"  ✓ Detailed length analysis saved to: {length_plots_dir}/")
 
 
 def create_length_boxplots(original_char_lengths: pd.Series, anomaly_char_lengths: pd.Series,
                            original_word_lengths: pd.Series, anomaly_word_lengths: pd.Series,
-                           output_dir: str):
+                           output_dir: str, category: str = "books"):
     """Create box plots comparing length distributions."""
 
     # Character length box plots - Separate figure
@@ -364,7 +369,8 @@ def create_length_boxplots(original_char_lengths: pd.Series, anomaly_char_length
     bp1['boxes'][0].set_facecolor('lightblue')
     bp1['boxes'][1].set_facecolor('lightcoral')
 
-    plt.title('Character Length Comparison', fontweight='bold', fontsize=14)
+    title = f'Character Length Comparison - {category}'
+    plt.title(title, fontweight='bold', fontsize=14)
     plt.ylabel('Character Count')
     plt.yscale('log')
     plt.grid(True, alpha=0.3)
@@ -389,7 +395,8 @@ def create_length_boxplots(original_char_lengths: pd.Series, anomaly_char_length
     bp2['boxes'][0].set_facecolor('lightblue')
     bp2['boxes'][1].set_facecolor('lightcoral')
 
-    plt.title('Word Length Comparison', fontweight='bold', fontsize=14)
+    title = f'Word Length Comparison - {category}'
+    plt.title(title, fontweight='bold', fontsize=14)
     plt.ylabel('Word Count')
     plt.yscale('log')
     plt.grid(True, alpha=0.3)
@@ -408,7 +415,7 @@ def create_length_boxplots(original_char_lengths: pd.Series, anomaly_char_length
 
 def create_length_cumulative_distributions(original_char_lengths: pd.Series, anomaly_char_lengths: pd.Series,
                                            original_word_lengths: pd.Series, anomaly_word_lengths: pd.Series,
-                                           output_dir: str):
+                                           output_dir: str, category: str = "books"):
     """Create cumulative distribution plots for length comparison."""
 
     # Character length CDF - Separate figure
@@ -424,7 +431,8 @@ def create_length_cumulative_distributions(original_char_lengths: pd.Series, ano
 
     plt.xlabel('Character Count')
     plt.ylabel('Cumulative Probability')
-    plt.title('Character Length Cumulative Distribution', fontweight='bold', fontsize=14)
+    title = f'Character Length Cumulative Distribution - {category}'
+    plt.title(title, fontweight='bold', fontsize=14)
     plt.xscale('log')
     plt.grid(True, alpha=0.3)
     plt.legend()
@@ -453,7 +461,8 @@ def create_length_cumulative_distributions(original_char_lengths: pd.Series, ano
 
     plt.xlabel('Word Count')
     plt.ylabel('Cumulative Probability')
-    plt.title('Word Length Cumulative Distribution', fontweight='bold', fontsize=14)
+    title = f'Word Length Cumulative Distribution - {category}'
+    plt.title(title, fontweight='bold', fontsize=14)
     plt.xscale('log')
     plt.grid(True, alpha=0.3)
     plt.legend()
@@ -471,7 +480,7 @@ def create_length_cumulative_distributions(original_char_lengths: pd.Series, ano
 
 
 def create_length_vs_rating_analysis(anomalies_df: pd.DataFrame, original_df: pd.DataFrame,
-                                     text_col: str, output_dir: str):
+                                     text_col: str, output_dir: str, category: str = "books"):
     """Create analysis of length vs rating patterns."""
 
     # Calculate lengths
@@ -503,7 +512,8 @@ def create_length_vs_rating_analysis(anomalies_df: pd.DataFrame, original_df: pd
 
     plt.xlabel('Character Count')
     plt.ylabel('Rating')
-    plt.title('Review Length vs Rating', fontweight='bold', fontsize=14)
+    title = f'Review Length vs Rating - {category}'
+    plt.title(title, fontweight='bold', fontsize=14)
     plt.xscale('log')
     plt.grid(True, alpha=0.3)
     plt.legend()
@@ -530,7 +540,8 @@ def create_length_vs_rating_analysis(anomalies_df: pd.DataFrame, original_df: pd
 
     plt.xlabel('Rating')
     plt.ylabel('Average Character Count')
-    plt.title('Average Review Length by Rating', fontweight='bold', fontsize=14)
+    title = f'Average Review Length by Rating - {category}'
+    plt.title(title, fontweight='bold', fontsize=14)
     plt.xticks(x, ratings)
     plt.legend()
     plt.grid(True, alpha=0.3, axis='y')
@@ -551,7 +562,7 @@ def create_length_vs_rating_analysis(anomalies_df: pd.DataFrame, original_df: pd
 
 def create_extreme_length_analysis(original_char_lengths: pd.Series, anomaly_char_lengths: pd.Series,
                                    original_word_lengths: pd.Series, anomaly_word_lengths: pd.Series,
-                                   output_dir: str):
+                                   output_dir: str, category: str = "books"):
     """Analyze extreme length cases (very short and very long reviews)."""
 
     categories = ['Normal Reviews', 'Anomalous Reviews']
@@ -567,7 +578,8 @@ def create_extreme_length_analysis(original_char_lengths: pd.Series, anomaly_cha
     short_pcts = [short_normal_pct, short_anomaly_pct]
 
     bars1 = plt.bar(categories, short_counts, alpha=0.7, color=['blue', 'red'])
-    plt.title('Very Short Reviews (< 50 characters)', fontweight='bold', fontsize=14)
+    title = f'Very Short Reviews (< 50 characters) - {category}'
+    plt.title(title, fontweight='bold', fontsize=14)
     plt.ylabel('Count')
     plt.grid(True, alpha=0.3, axis='y')
 
@@ -592,7 +604,8 @@ def create_extreme_length_analysis(original_char_lengths: pd.Series, anomaly_cha
     long_pcts = [long_normal_pct, long_anomaly_pct]
 
     bars2 = plt.bar(categories, long_counts, alpha=0.7, color=['blue', 'red'])
-    plt.title('Very Long Reviews (> 1000 characters)', fontweight='bold', fontsize=14)
+    title = f'Very Long Reviews (> 1000 characters) - {category}'
+    plt.title(title, fontweight='bold', fontsize=14)
     plt.ylabel('Count')
     plt.grid(True, alpha=0.3, axis='y')
 
@@ -619,7 +632,8 @@ def create_extreme_length_analysis(original_char_lengths: pd.Series, anomaly_cha
 
     plt.xlabel('Percentile')
     plt.ylabel('Character Count')
-    plt.title('Length Distribution by Percentiles', fontweight='bold', fontsize=14)
+    title = f'Length Distribution by Percentiles - {category}'
+    plt.title(title, fontweight='bold', fontsize=14)
     plt.yscale('log')
     plt.grid(True, alpha=0.3)
     plt.legend()
@@ -653,7 +667,8 @@ def create_extreme_length_analysis(original_char_lengths: pd.Series, anomaly_cha
     bars4 = plt.bar(length_labels, ratios, alpha=0.7, color=colors)
     plt.xlabel('Character Count Range')
     plt.ylabel('Anomaly/Normal Ratio')
-    plt.title('Length Distribution Ratio Analysis\n(>1 = More anomalies, <1 = Fewer anomalies)', fontweight='bold',
+    title_base = f'Length Distribution Ratio Analysis - {category}'
+    plt.title(f'{title_base}\n(>1 = More anomalies, <1 = Fewer anomalies)', fontweight='bold',
               fontsize=14)
     plt.axhline(y=1, color='black', linestyle='--', alpha=0.5, label='Equal ratio')
     plt.grid(True, alpha=0.3, axis='y')
@@ -671,7 +686,7 @@ def create_extreme_length_analysis(original_char_lengths: pd.Series, anomaly_cha
 
 
 def run_length_analysis(anomalies_df: pd.DataFrame, original_df: pd.DataFrame = None,
-                        output_dir: str = "evaluation_plots") -> Dict:
+                        output_dir: str = "evaluation_plots", category: str = "books") -> Dict:
     """
     Run complete length analysis including both analysis and visualizations.
     
@@ -679,6 +694,7 @@ def run_length_analysis(anomalies_df: pd.DataFrame, original_df: pd.DataFrame = 
         anomalies_df: DataFrame containing anomaly detection results
         original_df: Optional original dataset for comparison
         output_dir: Directory to save plots and results
+        category: Category name
         
     Returns:
         Dictionary with all length analysis results
@@ -691,6 +707,6 @@ def run_length_analysis(anomalies_df: pd.DataFrame, original_df: pd.DataFrame = 
     length_results = analyze_review_length_anomalies(anomalies_df, original_df)
 
     if length_results and original_df is not None:
-        create_length_comparison_visualizations(anomalies_df, original_df, length_results, length_plots_dir)
+        create_length_comparison_visualizations(anomalies_df, original_df, length_results, length_plots_dir, category)
 
     return length_results
