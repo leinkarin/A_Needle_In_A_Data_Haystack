@@ -43,9 +43,7 @@ class AmazonReviews2023Loader:
             print(f"Available categories: {', '.join(self.CATEGORIES[:5])}... (and {len(self.CATEGORIES)-5} more)")
         
         try:
-            # Load the dataset
             if category:
-                # For reviews, use the 'raw_review_' prefix
                 config_name = f"raw_review_{category}"
                 dataset = load_dataset(
                     self.dataset_name, 
@@ -55,17 +53,12 @@ class AmazonReviews2023Loader:
                     trust_remote_code=True
                 )
             else:
-                # Load all categories - this might not be supported directly
                 print("Loading all categories is not directly supported.")
                 print("Please specify a category from the available options.")
                 raise ValueError("Please specify a category")
             
-            # Handle IterableDatasetDict vs IterableDataset
-            if hasattr(dataset, 'values'):  # IterableDatasetDict
-                # Get the first (and likely only) split
+            if hasattr(dataset, 'values'):
                 dataset = next(iter(dataset.values()))
-            
-            # If num_samples specified, take only that many
             if num_samples and streaming:
                 dataset = dataset.take(num_samples)
             elif num_samples and not streaming:
@@ -100,7 +93,6 @@ class AmazonReviews2023Loader:
         
         try:
             if category:
-                # For metadata, use the 'raw_meta_' prefix
                 config_name = f"raw_meta_{category}"
                 dataset = load_dataset(
                     self.dataset_name,
@@ -109,14 +101,11 @@ class AmazonReviews2023Loader:
                     trust_remote_code=True
                 )
             else:
-                # Load all metadata - this might not be supported directly
                 print("Loading all metadata is not directly supported.")
                 print("Please specify a category from the available options.")
                 raise ValueError("Please specify a category")
             
-            # Handle IterableDatasetDict vs IterableDataset
-            if hasattr(dataset, 'values'):  # IterableDatasetDict
-                # Get the first (and likely only) split
+            if hasattr(dataset, 'values'):
                 dataset = next(iter(dataset.values()))
             
             if num_samples and streaming:

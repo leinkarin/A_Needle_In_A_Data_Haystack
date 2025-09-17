@@ -19,12 +19,8 @@ def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_
         output_dir: Directory to save plots
         category: Category name
     """
-    print("Creating user anomaly analysis visualizations...")
 
-    # Create user analysis subdirectory
     os.makedirs(output_dir, exist_ok=True)
-
-    # 1. Distribution of anomaly counts per user
     plt.figure(figsize=(10, 6))
     plt.hist(user_analysis_data['anomaly_count'], bins=30, alpha=0.7, color='lightcoral', edgecolor='black')
     plt.xlabel('Number of Anomalous Reviews per User')
@@ -33,8 +29,6 @@ def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_
     plt.title(title)
     plt.yscale('log')
     plt.grid(True, alpha=0.3)
-
-    # Add statistics text
     mean_anomalies = user_analysis_data['anomaly_count'].mean()
     median_anomalies = user_analysis_data['anomaly_count'].median()
     max_anomalies = user_analysis_data['anomaly_count'].max()
@@ -45,7 +39,6 @@ def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_
     plt.savefig(os.path.join(output_dir, 'anomaly_count_distribution.png'), dpi=300, bbox_inches='tight')
     plt.close()
 
-    # 2. Distribution of total reviews per user (for users with anomalies)
     plt.figure(figsize=(10, 6))
     plt.hist(user_analysis_data['reviewer_review_count'], bins=30, alpha=0.7, color='lightblue', edgecolor='black')
     plt.xlabel('Total Reviews per User')
@@ -55,7 +48,6 @@ def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_
     plt.yscale('log')
     plt.grid(True, alpha=0.3)
 
-    # Add statistics text
     mean_total = user_analysis_data['reviewer_review_count'].mean()
     median_total = user_analysis_data['reviewer_review_count'].median()
     max_total = user_analysis_data['reviewer_review_count'].max()
@@ -66,7 +58,6 @@ def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_
     plt.savefig(os.path.join(output_dir, 'total_review_count_distribution.png'), dpi=300, bbox_inches='tight')
     plt.close()
 
-    # 3. Anomaly rate distribution
     plt.figure(figsize=(10, 6))
     plt.hist(user_analysis_data['anomaly_rate'], bins=30, alpha=0.7, color='orange', edgecolor='black')
     plt.xlabel('Anomaly Rate (Anomalous / Total Reviews)')
@@ -75,7 +66,6 @@ def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_
     plt.title(title)
     plt.grid(True, alpha=0.3)
 
-    # Add statistics text
     mean_rate = user_analysis_data['anomaly_rate'].mean()
     median_rate = user_analysis_data['anomaly_rate'].median()
     plt.text(0.7, 0.8, f'Mean: {mean_rate:.3f}\nMedian: {median_rate:.3f}',
@@ -85,7 +75,6 @@ def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_
     plt.savefig(os.path.join(output_dir, 'anomaly_rate_distribution.png'), dpi=300, bbox_inches='tight')
     plt.close()
 
-    # 7. Cumulative distribution of normal reviews
     plt.figure(figsize=(10, 6))
     normal_reviews_sorted = np.sort(user_analysis_data['normal_reviews'])
     y = np.arange(1, len(normal_reviews_sorted) + 1) / len(normal_reviews_sorted)
@@ -97,7 +86,6 @@ def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_
     plt.xscale('log')
     plt.grid(True, alpha=0.3)
 
-    # Add percentile lines
     p50 = user_analysis_data['normal_reviews'].quantile(0.5)
     p90 = user_analysis_data['normal_reviews'].quantile(0.9)
     plt.axvline(p50, color='red', linestyle='--', alpha=0.7, label=f'50th percentile: {p50:.1f}')
@@ -108,7 +96,6 @@ def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_
     plt.savefig(os.path.join(output_dir, 'normal_reviews_cumulative_distribution.png'), dpi=300, bbox_inches='tight')
     plt.close()
 
-    # 8. Anomaly rate vs total reviews
     plt.figure(figsize=(10, 8))
     plt.scatter(user_analysis_data['reviewer_review_count'], user_analysis_data['anomaly_rate'],
                 alpha=0.6, s=30, color='purple')
@@ -119,7 +106,6 @@ def create_user_anomaly_visualizations(user_analysis_data: pd.DataFrame, output_
     plt.xscale('log')
     plt.grid(True, alpha=0.3)
 
-    # Add horizontal reference lines
     plt.axhline(0.5, color='red', linestyle='--', alpha=0.7, label='50% Anomaly Rate')
     plt.axhline(1.0, color='orange', linestyle='--', alpha=0.7, label='100% Anomaly Rate')
     plt.legend()
@@ -170,14 +156,12 @@ def create_top_users_analysis(anomalies_df: pd.DataFrame, output_dir: str, top_n
         print("  ⚠️ 'user_id' column not found")
         return
 
-    # Get top users by anomaly count
     user_anomaly_counts = anomalies_df['user_id'].value_counts().head(top_n)
 
     if len(user_anomaly_counts) == 0:
         print("  ⚠️ No users found with anomalies")
         return
 
-    # Create horizontal bar chart
     plt.figure(figsize=(12, max(8, top_n * 0.4)))
 
     y_pos = np.arange(len(user_anomaly_counts))
@@ -191,7 +175,6 @@ def create_top_users_analysis(anomalies_df: pd.DataFrame, output_dir: str, top_n
     plt.title(title, fontweight='bold')
     plt.grid(True, alpha=0.3, axis='x')
 
-    # Add value labels on bars
     for i, (bar, value) in enumerate(zip(bars, user_anomaly_counts.values)):
         plt.text(bar.get_width() + max(user_anomaly_counts.values) * 0.01, bar.get_y() + bar.get_height() / 2,
                  f'{value}', ha='left', va='center', fontweight='bold')
@@ -228,27 +211,21 @@ def analyze_user_anomaly_patterns(anomalies_df: pd.DataFrame) -> Dict:
         print("⚠️ No reviewer_review_count column found in anomaly data")
         return results
 
-    # Count anomalous reviews per user
     user_anomaly_counts = anomalies_df.groupby('user_id').size().reset_index(name='anomaly_count')
 
-    # Get reviewer_review_count for each user
     user_total_counts = anomalies_df.groupby('user_id')['reviewer_review_count'].first().reset_index()
 
-    # Merge the data
     user_analysis = pd.merge(user_anomaly_counts, user_total_counts, on='user_id', how='left')
 
-    # Calculate normal reviews and anomaly rate
     user_analysis['normal_reviews'] = user_analysis['reviewer_review_count'] - user_analysis['anomaly_count']
     user_analysis['anomaly_rate'] = user_analysis['anomaly_count'] / user_analysis['reviewer_review_count']
 
-    # Remove users with missing data
     user_analysis = user_analysis.dropna()
 
     if len(user_analysis) == 0:
         print("⚠️ No valid user data found for analysis")
         return results
 
-    # Calculate statistics
     stats = {
         'total_anomalous_users': len(user_analysis),
         'total_anomalous_reviews': int(user_analysis['anomaly_count'].sum()),
@@ -267,7 +244,6 @@ def analyze_user_anomaly_patterns(anomalies_df: pd.DataFrame) -> Dict:
         'users_with_multiple_reviews': int((user_analysis['reviewer_review_count'] > 1).sum())
     }
 
-    # Print summary
     print(f"User Anomaly Analysis Summary:")
     print(f"  Users with anomalous reviews: {stats['total_anomalous_users']:,}")
     print(f"  Total anomalous reviews: {stats['total_anomalous_reviews']:,}")
@@ -279,7 +255,6 @@ def analyze_user_anomaly_patterns(anomalies_df: pd.DataFrame) -> Dict:
     print(f"  Users with >50% anomaly rate: {stats['users_with_high_anomaly_rate']:,}")
     print(f"  Users with single review: {stats['users_with_single_review']:,}")
 
-    # Percentile analysis
     percentiles = {
         'anomaly_count_percentiles': {
             '25th': float(user_analysis['anomaly_count'].quantile(0.25)),
@@ -315,7 +290,6 @@ def analyze_user_anomaly_patterns(anomalies_df: pd.DataFrame) -> Dict:
           f"90th: {percentiles['anomaly_rate_percentiles']['90th']:.3f}, "
           f"95th: {percentiles['anomaly_rate_percentiles']['95th']:.3f}")
 
-    # Key insights
     print(f"\nKey Insights:")
     fraction_single = stats['users_with_single_review'] / stats['total_anomalous_users']
     fraction_all_anomalous = stats['users_with_all_anomalous'] / stats['total_anomalous_users']
@@ -347,7 +321,6 @@ def run_user_analysis(anomalies_df: pd.DataFrame, output_dir: str = "evaluation_
         Dictionary with all user analysis results
     """
 
-    # Create user_analysis subdirectory
     user_plots_dir = os.path.join(output_dir, "user_analysis")
     os.makedirs(user_plots_dir, exist_ok=True)
 
@@ -357,7 +330,6 @@ def run_user_analysis(anomalies_df: pd.DataFrame, output_dir: str = "evaluation_
         create_user_behavior_analysis(anomalies_df, user_plots_dir, category)
         create_top_users_analysis(anomalies_df, user_plots_dir, category=category)
     else:
-        print("⚠️ Required user columns not found - skipping user visualizations")
+        print("Required user columns not found - skipping user visualizations")
 
-    print("✅ User analysis complete!")
     return user_results

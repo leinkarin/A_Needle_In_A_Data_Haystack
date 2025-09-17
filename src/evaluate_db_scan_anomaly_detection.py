@@ -71,16 +71,10 @@ class AnomalyDetectionEvaluator:
 
     def _load_data(self):
         """Load anomaly results and original data."""
-        print(f"Loading anomaly results from: {self.results_file}")
         self.anomalies_df = pd.read_csv(self.results_file)
-        print(f"✓ Loaded {len(self.anomalies_df)} anomalies")
 
         if self.original_data_file and os.path.exists(self.original_data_file):
-            print(f"Loading original data from: {self.original_data_file}")
             self.original_df = pd.read_csv(self.original_data_file)
-            print(f"✓ Loaded {len(self.original_df)} original records")
-        else:
-            print("Original data file not provided or not found")
 
     def evaluate_anomaly_characteristics(self) -> Dict:
         """
@@ -89,51 +83,32 @@ class AnomalyDetectionEvaluator:
         Returns:
             Dictionary with evaluation metrics
         """
-        print("\n" + "=" * 60)
-        print("ANOMALY CHARACTERISTICS EVALUATION")
-        print("=" * 60)
-
         results = {}
 
         results['total_anomalies'] = len(self.anomalies_df)
 
         if self.original_df is not None:
             results['anomaly_rate'] = len(self.anomalies_df) / len(self.original_df)
-            print(f"Anomaly Rate: {results['anomaly_rate']:.4f} ({results['anomaly_rate'] * 100:.2f}%)")
 
         available_features = [col for col in FEATURE_COLUMNS if col in self.anomalies_df.columns]
 
-        print(f"\nFeature Analysis for {len(available_features)} available features:")
         for feature in available_features:
             stats = self._calculate_feature_statistics(feature)
             if stats:
-                print(f"  {feature}:")
-                if self.anomalies_df[feature].dtype == bool:
-                    print(f"    Proportion True: {stats['mean']:.4f}, Std: {stats['std']:.4f}")
-                    print(f"    Boolean range: [{stats['min']}, {stats['max']}]")
-                else:
-                    print(f"    Mean: {stats['mean']:.4f}, Std: {stats['std']:.4f}")
-                    print(f"    Range: [{stats['min']:.4f}, {stats['max']:.4f}]")
-
                 for stat_name, stat_value in stats.items():
                     results[f'{feature}_{stat_name}'] = stat_value
 
         if 'category' in self.anomalies_df.columns:
-            print(f"\nAnomaly Distribution by Category:")
             category_counts = self.anomalies_df['category'].value_counts()
             for category, count in category_counts.items():
                 percentage = (count / len(self.anomalies_df)) * 100
-                print(f"  {category}: {count} ({percentage:.1f}%)")
                 results[f'category_{category}_count'] = count
                 results[f'category_{category}_percentage'] = percentage
 
         if 'rating' in self.anomalies_df.columns:
-            print(f"\nRating Distribution Analysis:")
             rating_counts = self.anomalies_df['rating'].value_counts().sort_index()
-            print(f"  Rating distribution:")
             for rating, count in rating_counts.items():
                 percentage = (count / len(self.anomalies_df)) * 100
-                print(f"    {rating} stars: {count} ({percentage:.1f}%)")
                 results[f'rating_{int(rating)}_count'] = count
                 results[f'rating_{int(rating)}_percentage'] = percentage
 
@@ -147,19 +122,13 @@ class AnomalyDetectionEvaluator:
             Dictionary with comparison metrics
         """
         if self.original_df is None:
-            print("Cannot compare with original data - file not provided")
             return {}
-
-        print("\n" + "=" * 60)
-        print("COMPARISON WITH ORIGINAL DATASET")
-        print("=" * 60)
 
         results = {}
 
         available_features = [col for col in FEATURE_COLUMNS
                               if col in self.anomalies_df.columns and col in self.original_df.columns]
 
-        print(f"Feature Comparison Analysis:")
         for feature in available_features:
             anomaly_mean = self.anomalies_df[feature].mean()
             original_mean = self.original_df[feature].mean()
@@ -169,17 +138,10 @@ class AnomalyDetectionEvaluator:
             mean_diff = anomaly_mean - original_mean
             std_ratio = anomaly_std / original_std if original_std > 0 else 0
 
-            print(f"  {feature}:")
-            print(f"    Anomaly mean: {anomaly_mean:.4f}, Original mean: {original_mean:.4f}")
-            print(f"    Mean difference: {mean_diff:.4f}")
-            print(f"    Anomaly std: {anomaly_std:.4f}, Original std: {original_std:.4f}")
-            print(f"    Std ratio: {std_ratio:.2f}")
-
             results[f'{feature}_mean_diff'] = mean_diff
             results[f'{feature}_std_ratio'] = std_ratio
 
         if 'category' in self.anomalies_df.columns and 'category' in self.original_df.columns:
-            print(f"\nCategory Distribution Comparison:")
             anomaly_cats = self.anomalies_df['category'].value_counts(normalize=True)
             original_cats = self.original_df['category'].value_counts(normalize=True)
 
@@ -187,10 +149,6 @@ class AnomalyDetectionEvaluator:
                 anomaly_pct = anomaly_cats.get(category, 0) * 100
                 original_pct = original_cats.get(category, 0) * 100
                 diff = anomaly_pct - original_pct
-
-                print(f"  {category}:")
-                print(f"    Anomaly: {anomaly_pct:.1f}%, Original: {original_pct:.1f}%")
-                print(f"    Difference: {diff:+.1f}%")
 
                 results[f'category_{category}_pct_diff'] = diff
 
@@ -200,6 +158,7 @@ class AnomalyDetectionEvaluator:
                                 anomaly_chars: dict = None, basic_results: dict = None,
                                 user_results: dict = None, length_results: dict = None,
                                 comparison_results: dict = None):
+        """Generate a comprehensive summary report."""
         print(f"\nGenerating summary report: {output_file}")
         anomaly_patterns = basic_results
         user_patterns = user_results
@@ -313,16 +272,10 @@ class AnomalyDetectionEvaluator:
                     else:
                         f.write(f"  {key}: {value}\n")
 
-        print(f"✓ Summary report saved to: {output_file}")
-
     def run_complete_evaluation(self, output_dir: str = "evaluation_results"):
+        """Run complete evaluation pipeline."""
         category_dir = os.path.join(output_dir, self.category)
         os.makedirs(category_dir, exist_ok=True)
-
-        print("=" * 80)
-        print("RUNNING COMPLETE DBSCAN ANOMALY DETECTION EVALUATION")
-        print(f"Category: {self.category}")
-        print("=" * 80)
 
         anomaly_chars = self.evaluate_anomaly_characteristics()
 
@@ -353,11 +306,6 @@ class AnomalyDetectionEvaluator:
         metrics_file = os.path.join(category_dir, "evaluation_metrics.json")
         with open(metrics_file, 'w') as f:
             json.dump(all_metrics, f, indent=2, default=str)
-
-        print(f"\n✓ Complete evaluation saved to: {category_dir}")
-        print(f"  - Report: {report_file}")
-        print(f"  - Metrics: {metrics_file}")
-        print(f"  - Plots: {plots_dir}/")
 
         return all_metrics
 
@@ -397,14 +345,6 @@ def main():
 
     args = parser.parse_args()
 
-    print("=" * 80)
-    print("DBSCAN ANOMALY DETECTION EVALUATION")
-    print("=" * 80)
-    print(f"Anomaly Data File: {args.anomaly_data_file}")
-    print(f"Original Data File: {args.original_data}")
-    print(f"Output Directory: {args.output_dir}")
-    print("=" * 80)
-
     if not os.path.exists(args.anomaly_data_file):
         print(f"Anomaly data file not found: {args.anomaly_data_file}")
         print("Please provide a valid path using --anomaly-data-file")
@@ -422,10 +362,6 @@ def main():
     )
 
     evaluator.run_complete_evaluation(args.output_dir)
-
-    print("\n" + "=" * 80)
-    print("EVALUATION COMPLETE!")
-    print("=" * 80)
 
 
 if __name__ == "__main__":

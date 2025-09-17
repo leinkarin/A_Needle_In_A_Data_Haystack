@@ -25,23 +25,23 @@ class DBScanAnomalyDetector:
             all_labels = []
             all_anomalies = []
             total_batches = (len(self.features_data) + self.batch_size - 1) // self.batch_size
-            
+
             with tqdm(total=total_batches, desc="Processing batches", unit="batch") as pbar:
                 for i in range(0, len(self.features_data), self.batch_size):
-                    batch = self.features_data[i:i+self.batch_size]
+                    batch = self.features_data[i:i + self.batch_size]
                     batch_cluster_labels, batch_anomaly_indices = self._scan(batch)
                     all_labels.append(batch_cluster_labels)
                     if len(batch_anomaly_indices) > 0:
                         all_anomalies.append(batch_anomaly_indices + i)
                     pbar.update(1)
-            
+
             self.cluster_labels = np.concatenate(all_labels)
             self.anomaly_indices = np.concatenate(all_anomalies)
 
         return self.cluster_labels, self.anomaly_indices
 
     def _scan(self, batch: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        
+
         process = psutil.Process(os.getpid())
         
         print(f"Batch input size: {batch.nbytes / 1024**2:.1f}MB")

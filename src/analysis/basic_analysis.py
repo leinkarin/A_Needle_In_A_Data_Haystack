@@ -30,7 +30,6 @@ def create_rating_distribution_plot(anomalies_df: pd.DataFrame, output_dir: str,
     os.makedirs(output_dir, exist_ok=True)
     plt.savefig(os.path.join(output_dir, 'rating_distribution.png'), dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"✓ Saved rating distribution plot to: {os.path.join(output_dir, 'rating_distribution.png')}")
 
 
 def create_basic_feature_distributions(anomalies_df: pd.DataFrame, output_dir: str, category: str = "books"):
@@ -65,7 +64,6 @@ def create_basic_feature_distributions(anomalies_df: pd.DataFrame, output_dir: s
         plt.savefig(os.path.join(output_dir, f'{feature}_distribution.png'), dpi=300, bbox_inches='tight')
         plt.close()
 
-    print(f"✓ Saved {len(available_features)} feature distribution plots to: {output_dir}/")
 
 
 def create_rating_comparison_plot(anomalies_df: pd.DataFrame, original_df: pd.DataFrame, output_dir: str, category: str = "books"):
@@ -125,7 +123,6 @@ def create_rating_vs_rating_diff_analysis(anomalies_df: pd.DataFrame, original_d
     """Create rating vs rating difference analysis plot."""
     if ('rating' in anomalies_df.columns and 'rating_diff' in anomalies_df.columns and
             original_df is not None and 'rating' in original_df.columns and 'rating_diff' in original_df.columns):
-
         plt.figure(figsize=(12, 8))
 
         anomaly_indices = set(anomalies_df.index)
@@ -155,18 +152,6 @@ def create_rating_vs_rating_diff_analysis(anomalies_df: pd.DataFrame, original_d
         plt.legend()
         plt.grid(True, alpha=0.3)
         plt.xticks([1, 2, 3, 4, 5])
-
-        for _, row in anomaly_rating_groups.iterrows():
-            plt.annotate(f'n={int(row["count"])}',
-                         (row['rating'], row['mean']),
-                         textcoords="offset points", xytext=(0, 10), ha='center',
-                         fontsize=8, color='darkred')
-
-        for _, row in normal_rating_groups.iterrows():
-            plt.annotate(f'n={int(row["count"])}',
-                         (row['rating'], row['mean']),
-                         textcoords="offset points", xytext=(0, -15), ha='center',
-                         fontsize=8, color='darkblue')
 
         plt.tight_layout()
 
@@ -277,29 +262,15 @@ def create_basic_metrics_visualization(anomalies_df: pd.DataFrame, original_df: 
 
 def analyze_anomaly_patterns(anomalies_df: pd.DataFrame) -> Dict:
     """Analyze patterns in detected anomalies."""
-    print("\n" + "=" * 60)
-    print("ANOMALY PATTERN ANALYSIS")
-    print("=" * 60)
-
     results = {}
 
     if 'rating' in anomalies_df.columns and 'predicted_rating' in anomalies_df.columns:
-        print("Rating vs Predicted Rating Analysis:")
-
         rating_diff = anomalies_df['rating'] - anomalies_df['predicted_rating']
         mean_diff = rating_diff.mean()
         std_diff = rating_diff.std()
 
-        print(f"  Mean rating difference: {mean_diff:.4f}")
-        print(f"  Std rating difference: {std_diff:.4f}")
-
         positive_diff = rating_diff > 0
         negative_diff = rating_diff < 0
-
-        print(
-            f"  Positive differences (actual > predicted): {positive_diff.sum()} ({positive_diff.mean() * 100:.1f}%)")
-        print(
-            f"  Negative differences (actual < predicted): {negative_diff.sum()} ({negative_diff.mean() * 100:.1f}%)")
 
         results['mean_rating_diff'] = mean_diff
         results['std_rating_diff'] = std_diff
@@ -309,16 +280,11 @@ def analyze_anomaly_patterns(anomalies_df: pd.DataFrame) -> Dict:
         results['negative_diff_percentage'] = negative_diff.mean() * 100
 
     if 'helpful_vote' in anomalies_df.columns:
-        print(f"\nHelpful Votes Analysis:")
         helpful_votes = anomalies_df['helpful_vote']
 
         zero_votes = (helpful_votes == 0).sum()
         low_votes = ((helpful_votes > 0) & (helpful_votes <= 5)).sum()
         high_votes = (helpful_votes > 5).sum()
-
-        print(f"  Zero votes: {zero_votes} ({zero_votes / len(helpful_votes) * 100:.1f}%)")
-        print(f"  Low votes (1-5): {low_votes} ({low_votes / len(helpful_votes) * 100:.1f}%)")
-        print(f"  High votes (>5): {high_votes} ({high_votes / len(helpful_votes) * 100:.1f}%)")
 
         results['zero_votes_count'] = zero_votes
         results['low_votes_count'] = low_votes
@@ -328,14 +294,10 @@ def analyze_anomaly_patterns(anomalies_df: pd.DataFrame) -> Dict:
         results['high_votes_percentage'] = high_votes / len(helpful_votes) * 100
 
     if 'verified_purchase' in anomalies_df.columns:
-        print(f"\nVerified Purchase Analysis:")
         verified = anomalies_df['verified_purchase']
 
         verified_count = verified.sum()
         unverified_count = len(verified) - verified_count
-
-        print(f"  Verified purchases: {verified_count} ({verified_count / len(verified) * 100:.1f}%)")
-        print(f"  Unverified purchases: {unverified_count} ({unverified_count / len(verified) * 100:.1f}%)")
 
         results['verified_count'] = verified_count
         results['unverified_count'] = unverified_count
@@ -343,14 +305,10 @@ def analyze_anomaly_patterns(anomalies_df: pd.DataFrame) -> Dict:
         results['unverified_percentage'] = unverified_count / len(verified) * 100
 
     if 'has_images' in anomalies_df.columns:
-        print(f"\nImages Analysis:")
         has_images = anomalies_df['has_images']
 
         with_images = has_images.sum()
         without_images = len(has_images) - with_images
-
-        print(f"  Reviews with images: {with_images} ({with_images / len(has_images) * 100:.1f}%)")
-        print(f"  Reviews without images: {without_images} ({without_images / len(has_images) * 100:.1f}%)")
 
         results['with_images_count'] = with_images
         results['without_images_count'] = without_images

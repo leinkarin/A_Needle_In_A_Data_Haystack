@@ -10,15 +10,12 @@ def load_data_from_csv(csv_path: str, max_rows: int = None) -> pd.DataFrame:
     """
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"CSV file not found: {csv_path}")
-    
-    print(f"Loading data from: {csv_path}")
+
     df = pd.read_csv(csv_path)
-    df=df.dropna()
-    
+    df = df.dropna()
+
     if max_rows and len(df) > max_rows:
         df = df.head(max_rows)
-    
-    print(f"Loaded {len(df)} reviews from CSV")
     return df
 
 
@@ -31,8 +28,6 @@ def build_features_data(df: pd.DataFrame) -> np.ndarray:
     Returns:
         Feature array for anomaly detection
     """
-    print("Building features from data...")
-    
     features = {
         "helpful_votes": df['helpful_vote'].values,  
         "verified_purchase": df['verified_purchase'].astype(int).values,
@@ -63,10 +58,9 @@ def build_features_data(df: pd.DataFrame) -> np.ndarray:
 def check_outliers_simple(df: pd.DataFrame):
     """Simple check for extreme outliers that might be causing the k-distance spike."""
     print("=== CHECKING FOR EXTREME OUTLIERS ===\n")
-    
-    # Check the features most likely to have extreme outliers
+
     features_to_check = ['helpful_vote', 'reviewer_review_count']
-    
+
     for feature in features_to_check:
         if feature not in df.columns:
             print(f"Feature {feature} not found")
@@ -85,9 +79,8 @@ def check_outliers_simple(df: pd.DataFrame):
         print(f"  Max/95th ratio: {ratio:.1f}x")
         
         if ratio > 10:
-            print(f"   PROBLEM: Extreme outliers detected!")
+            print(f"PROBLEM: Extreme outliers detected!")
             print(f"     Top 5 values: {sorted(data.nlargest(5).tolist(), reverse=True)}")
         else:
-            print(f"   Outliers look reasonable")
+            print(f"Outliers look reasonable")
         print()
-
