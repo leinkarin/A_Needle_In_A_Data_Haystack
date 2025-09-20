@@ -1,0 +1,100 @@
+================================================================================
+DBSCAN ANOMALY DETECTION EVALUATION REPORT
+================================================================================
+
+Results File: output/clothing_shoes_and_jewelry_test_scan_anomalies_eps_0.55_min_samples_12_batch_size_100000.csv
+Original Data File: data/test/clothing_shoes_and_jewelry_test.csv
+Evaluation Date: 2025-09-20 15:27:54
+
+SUMMARY STATISTICS
+----------------------------------------
+Total Anomalies Detected: 4425
+Anomaly Rate: 0.0089 (0.89%)
+KEY FINDINGS
+----------------------------------------
+• Average rating difference: 1.024
+• Positive rating differences: 27.0%
+• Negative rating differences: 73.0%
+• Reviews with zero helpful votes: 22.4%
+• Verified purchases: 61.7%
+• Users with anomalous reviews: 2,426
+• Avg anomalies per user: 1.82
+• Avg normal reviews per user: 46.4
+• Users with all reviews anomalous: 84
+• Users with >50% anomaly rate: 86
+
+COMPARISON WITH NORMAL DATA:
+• Helpful Vote Mean Diff: +33.733
+• Helpful Vote Std Ratio: +9.460
+• Verified Purchase Mean Diff: -0.193
+• Verified Purchase Std Ratio: +1.240
+• Has Images Mean Diff: +0.401
+• Has Images Std Ratio: +1.981
+• Rating Diff Mean Diff: +0.646
+• Rating Diff Std Ratio: +2.174
+• Reviewer Review Count Mean Diff: +213.971
+• Reviewer Review Count Std Ratio: +1.299
+• Rating Vs Product Avg Abs Mean Diff: +0.738
+• Rating Vs Product Avg Abs Std Ratio: +1.536
+
+DETAILED METRICS
+----------------------------------------
+Feature Statistics:
+  helpful_vote_mean: 34.6793
+  helpful_vote_std: 82.3650
+  helpful_vote_min: 0
+  helpful_vote_max: 1749
+  verified_purchase_mean: 0.6172
+  verified_purchase_std: 0.4861
+  verified_purchase_min: False
+  verified_purchase_max: True
+  has_images_mean: 0.4696
+  has_images_std: 0.4991
+  has_images_min: False
+  has_images_max: True
+  rating_diff_mean: 1.0241
+  rating_diff_std: 0.9332
+  rating_diff_min: 0.0003
+  rating_diff_max: 4.2295
+  reviewer_review_count_mean: 389.3941
+  reviewer_review_count_std: 729.9002
+  reviewer_review_count_min: 1
+  reviewer_review_count_max: 4293
+  rating_vs_product_avg_abs_mean: 1.5785
+  rating_vs_product_avg_abs_std: 1.1264
+  rating_vs_product_avg_abs_min: 0.0000
+  rating_vs_product_avg_abs_max: 4.0000
+  rating_1_count: 1106
+  rating_1_percentage: 24.9944
+  rating_2_count: 683
+  rating_2_percentage: 15.4350
+  rating_3_count: 560
+  rating_3_percentage: 12.6554
+  rating_4_count: 682
+  rating_4_percentage: 15.4124
+  rating_5_count: 1394
+  rating_5_percentage: 31.5028
+
+User Pattern Metrics:
+  total_anomalous_users: 2426
+  total_anomalous_reviews: 4425
+  avg_anomalies_per_user: 1.8240
+  max_anomalies_per_user: 103
+  avg_total_reviews_per_user: 48.2638
+  avg_normal_reviews_per_user: 46.4398
+  users_with_all_anomalous: 84
+  users_with_high_anomaly_rate: 86
+
+Comparison with Original Data:
+  helpful_vote_mean_diff: 33.7334
+  helpful_vote_std_ratio: 9.4604
+  verified_purchase_mean_diff: -0.1933
+  verified_purchase_std_ratio: 1.2403
+  has_images_mean_diff: 0.4015
+  has_images_std_ratio: 1.9813
+  rating_diff_mean_diff: 0.6458
+  rating_diff_std_ratio: 2.1744
+  reviewer_review_count_mean_diff: 213.9714
+  reviewer_review_count_std_ratio: 1.2991
+  rating_vs_product_avg_abs_mean_diff: 0.7382
+  rating_vs_product_avg_abs_std_ratio: 1.5361
