@@ -125,12 +125,23 @@ cd src/data_creation
 python create_subsets.py --categories Books Electronics Clothing_Shoes_and_Jewelry --train-samples 10000 --test-samples 30000
 ```
 
+### 3. Model Training
+```bash
+cd src
+jupyter notebook regression_model.ipynb
+```
+
+After training, you can use the trained model to predict ratings and calculate rating differences for your datasets. The model adds `predicted_rating` and `rating_diff` columns to enhance anomaly detection features.
+
+### 4. Feature Enhancement
+
 Enhance with additional features:
 ```bash
+cd src/data_creation
 python enhance_data_with_more_features.py data/test/books_test.csv Books
 ```
 
-### 3. Parameter Selection
+### 5. Parameter Selection
 
 Generate k-distance plots for parameter optimization:
 ```bash
@@ -138,7 +149,7 @@ cd src
 python dbscan_parameter_selection.py --csv-path data/test/books_test.csv --plot k-distance_plots/books.png
 ```
 
-### 4. Anomaly Detection
+### 6. Anomaly Detection
 
 Run DBSCAN anomaly detection:
 ```bash
@@ -150,7 +161,7 @@ Or use the Jupyter notebook:
 jupyter notebook db_scan.ipynb
 ```
 
-### 5. Evaluation and Analysis
+### 7. Evaluation and Analysis
 
 Generate comprehensive evaluation:
 ```bash
