@@ -18,27 +18,6 @@ This project includes:
 #### `requirements.txt`
 Python dependencies file containing all required packages.
 
-### Data Directory (`data/`)
-
-Contains processed datasets organized by split and format:
-
-#### Training Data (`data/train/`)
-- `books_train.csv` / `books_train.parquet` - Books category training data
-- `clothing_shoes_and_jewelry_train.csv` / `clothing_shoes_and_jewelry_train.parquet` - Clothing training data
-- `electronics_train.csv` / `electronics_train.parquet` - Electronics training data
-- `combined_train.csv` - Combined training data across all categories
-
-#### Validation Data (`data/val/`)
-- `books_val.csv` / `books_val.parquet` - Books validation set
-- `clothing_shoes_and_jewelry_val.csv` / `clothing_shoes_and_jewelry_val.parquet` - Clothing validation set
-- `electronics_val.csv` / `electronics_val.parquet` - Electronics validation set
-- `combined_val.csv` - Combined validation data
-
-#### Test Data (`data/test/`)
-- `books_test.csv` - Books test set for anomaly detection
-- `clothing_shoes_and_jewelry_test.csv` - Clothing test set
-- `electronics_test.csv` - Electronics test set
-
 ### Source Code (`src/`)
 
 #### Core Anomaly Detection Scripts

@@ -174,8 +174,8 @@ def create_dataset(
     os.makedirs(f'{output_path}/val', exist_ok=True)
     os.makedirs(f'{output_path}/test', exist_ok=True)
 
-    print("\nLoading BART-base tokenizer...")
-    tokenizer = AutoTokenizer.from_pretrained("microsoft/deberta-v3-base")
+    print("\nLoading deberta tokenizer...")
+    tokenizer = AutoTokenizer.from_pretrained("microsoft/deberta-v3-base", trust_remote_code=True, use_fast=False)
 
     loader = AmazonReviews2023Loader()
 
@@ -406,7 +406,7 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
-    parser.add_argument("--output-path", "-o", type=str, default="data_v2", help="Output directory path")
+    parser.add_argument("--output-path", "-o", type=str, default="data", help="Output directory path")
     parser.add_argument("--train-samples", "-t", type=int, default=10000, help="Training samples per category")
     parser.add_argument("--val-samples", "-v", type=int, default=1000, help="Validation samples per category")
     parser.add_argument("--test-samples", "-s", type=int, default=10000, help="Test samples per category")
