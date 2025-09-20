@@ -1,0 +1,155 @@
+{
+  "category": "books",
+  "anomaly_characteristics": {
+    "total_anomalies": 2968,
+    "anomaly_rate": 0.009944847644129926,
+    "helpful_vote_mean": 38.36219676549865,
+    "helpful_vote_std": 100.60710159140132,
+    "helpful_vote_min": "0",
+    "helpful_vote_max": "3567",
+    "verified_purchase_mean": 0.5188679245283019,
+    "verified_purchase_std": 0.4997280676862562,
+    "verified_purchase_min": "False",
+    "verified_purchase_max": "True",
+    "has_images_mean": 0.19171159029649595,
+    "has_images_std": 0.39371370778067033,
+    "has_images_min": "False",
+    "has_images_max": "True",
+    "rating_diff_mean": 1.1191584409648838,
+    "rating_diff_std": 1.1130425115864688,
+    "rating_diff_min": 0.0007442235946655,
+    "rating_diff_max": 4.21821308135986,
+    "reviewer_review_count_mean": 355.41374663072776,
+    "reviewer_review_count_std": 735.0879300374891,
+    "reviewer_review_count_min": "1",
+    "reviewer_review_count_max": "3838",
+    "rating_vs_product_avg_abs_mean": 1.8286725067385445,
+    "rating_vs_product_avg_abs_std": 1.2135164469685658,
+    "rating_vs_product_avg_abs_min": 0.0,
+    "rating_vs_product_avg_abs_max": 3.9,
+    "category_Books_count": 2968,
+    "category_Books_percentage": 100.0,
+    "rating_1_count": 914,
+    "rating_1_percentage": 30.79514824797844,
+    "rating_2_count": 512,
+    "rating_2_percentage": 17.25067385444744,
+    "rating_3_count": 505,
+    "rating_3_percentage": 17.014824797843666,
+    "rating_4_count": 327,
+    "rating_4_percentage": 11.017520215633423,
+    "rating_5_count": 710,
+    "rating_5_percentage": 23.921832884097036
+  },
+  "basic_metrics": {
+    "positive_diff_percentage": 25.673854447439354,
+    "negative_diff_percentage": 74.32614555256065,
+    "mean_rating_diff": 1.1191584409648838,
+    "zero_votes_count": "533",
+    "low_votes_count": "446",
+    "high_votes_count": "1989",
+    "zero_votes_percentage": 17.958221024258762,
+    "low_votes_percentage": 15.026954177897576,
+    "high_votes_percentage": 67.01482479784366,
+    "verified_count": "1540",
+    "unverified_count": "1428",
+    "verified_percentage": 51.886792452830186,
+    "unverified_percentage": 48.113207547169814,
+    "with_images_count": "569",
+    "without_images_count": "2399",
+    "with_images_percentage": 19.171159029649594,
+    "without_images_percentage": 80.8288409703504
+  },
+  "user_analysis": {
+    "total_anomalous_users": 1840,
+    "total_anomalous_reviews": 2968,
+    "avg_anomalies_per_user": 1.6130434782608696,
+    "max_anomalies_per_user": 80,
+    "avg_total_reviews_per_user": 44.35054347826087,
+    "avg_normal_reviews_per_user": 42.7375,
+    "users_with_all_anomalous": 180,
+    "users_with_high_anomaly_rate": 183,
+    "user_analysis_data": "                           user_id  anomaly_count  reviewer_review_count  normal_reviews  anomaly_rate\n0     AE23HADBF2AFC4BHSY5YCF3VN67A              1                     13              12      0.076923\n1     AE24X2EV7V6EIEVGS5CTUVXQBSUQ              1                      2               1      0.500000\n2     AE25G5BOT63IAHYWU24CIHSIBFDQ              1                      1               0      1.000000\n3     AE25SZPU7AIIMXMY6FYWQEPVCZZQ              1                      2               1      0.500000\n4     AE2D2MWFKGR4FVDN3CQ4MX5EQYMA              2                     41              39      0.048780\n...                            ...            ...                    ...             ...           ...\n1835  AHZOR52YZAO2WTTO2AV5H55PM25A              1                      1               0      1.000000\n1836  AHZVME435OBSGPQL4MN4F32RNY2Q              1                      1               0      1.000000\n1837  AHZVNDBSVL6BWGT2446JDYEDQUJQ              1                      7               6      0.142857\n1838  AHZXYW4LC6GBVCIMG4IWZS7CIVQQ              1                     10               9      0.100000\n1839  AHZZ3WF5DQQTPZV2R3EPXIPHCIDA              2                     13              11      0.153846\n\n[1840 rows x 5 columns]"
+  },
+  "coordinated_attacks": {
+    "spam_patterns": {
+      "count": 3,
+      "patterns": [
+        {
+          "user_id": "AGXFIFO4VWNHPAX3VJPRQ2QJSCSQ",
+          "indices": [
+            32,
+            135,
+            166,
+            237,
+            355,
+            434,
+            444,
+            457,
+            507,
+            549,
+            720,
+            735,
+            851,
+            888,
+            970,
+            1115,
+            1267
+          ],
+          "review_count": 17,
+          "avg_similarity": 0.9700176145192407
+        },
+        {
+          "user_id": "AH3ZHPRZQULBBS57YOTJ4IUAGZQQ",
+          "indices": [
+            2219,
+            2296,
+            2784
+          ],
+          "review_count": 3,
+          "avg_similarity": 0.964705264094517
+        },
+        {
+          "user_id": "AHZIHNW6OOJ4YJJN4WVC46M36BIQ",
+          "indices": [
+            2,
+            91,
+            124,
+            274,
+            277,
+            484,
+            527,
+            753
+          ],
+          "review_count": 8,
+          "avg_similarity": 1.0000000000000002
+        }
+      ],
+      "graph": "Graph with 28 nodes and 167 edges",
+      "length_distribution": {
+        "user_avg_lengths": [
+          227.94117647058823,
+          92.66666666666667,
+          128.75
+        ],
+        "mean_avg_length": 149.7859477124183,
+        "median_avg_length": 128.75,
+        "std_avg_length": 57.19371511388592,
+        "total_patterns": 3
+      }
+    }
+  },
+  "comparison_with_original": {
+    "helpful_vote_mean_diff": 36.99714245081526,
+    "helpful_vote_std_ratio": 9.051259655832874,
+    "verified_purchase_mean_diff": -0.22129612524954734,
+    "verified_purchase_std_ratio": 1.139513309369801,
+    "has_images_mean_diff": 0.17341682340399278,
+    "has_images_std_ratio": 2.9378242746854664,
+    "rating_diff_mean_diff": 0.7723672431487596,
+    "rating_diff_std_ratio": 2.882299104805504,
+    "reviewer_review_count_mean_diff": 232.5099348858895,
+    "reviewer_review_count_std_ratio": 1.6775732456949466,
+    "rating_vs_product_avg_abs_mean_diff": 1.1679690628994581,
+    "rating_vs_product_avg_abs_std_ratio": 1.8328276179788752
+  }
+}
