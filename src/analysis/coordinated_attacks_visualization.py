@@ -1,5 +1,3 @@
-import argparse
-import re
 from typing import Dict, List
 import pandas as pd
 import seaborn as sns
@@ -23,48 +21,6 @@ SIMILARITY_THRESHOLDS = {
     'moderate': 0.5,
     'isolation': 0.3
 }
-
-
-def _detect_coordinated_attacks(similarity_matrix: np.ndarray, valid_df: pd.DataFrame,
-                                valid_indices: List[int]) -> List[Dict]:
-    """Detect coordinated attacks using similarity patterns."""
-    coordinated_groups = []
-    high_sim_threshold = SIMILARITY_THRESHOLDS['high']
-
-    processed_indices = set()
-
-    for i in range(len(similarity_matrix)):
-        if i in processed_indices:
-            continue
-
-        similar_indices = np.where(similarity_matrix[i] >= high_sim_threshold)[0]
-
-        if len(similar_indices) >= 2:
-            group_indices = list(set([i] + similar_indices.tolist()))
-            group_df_indices = [valid_indices[idx] for idx in group_indices]
-
-            if 'user_id' in valid_df.columns:
-                users_in_group = valid_df.loc[group_df_indices, 'user_id'].unique()
-
-                if len(users_in_group) > 1:
-                    group_similarities = []
-                    for gi in group_indices:
-                        for gj in group_indices:
-                            if gi != gj:
-                                group_similarities.append(similarity_matrix[gi, gj])
-
-                    avg_similarity = np.mean(group_similarities) if group_similarities else 0
-
-                    coordinated_groups.append({
-                        'indices': group_df_indices,
-                        'size': len(group_indices),
-                        'unique_users': len(users_in_group),
-                        'avg_similarity': avg_similarity,
-                    })
-
-                    processed_indices.update(group_indices)
-
-    return coordinated_groups
 
 
 def _detect_user_spam_patterns(similarity_matrix: np.ndarray, valid_df: pd.DataFrame,
@@ -323,115 +279,6 @@ def create_spam_patterns_network_graph(anomalies_df: pd.DataFrame, output_dir: s
     return G, spam_users
 
 
-def create_coordinated_attacks_network_graph(anomalies_df: pd.DataFrame, output_dir: str, similarity_matrix,
-                                             anomalies_indices, category: str = "books"):
-    """Create network graph visualization specifically for coordinated attacks."""
-
-    try:
-        import networkx as nx
-        from matplotlib.patches import Patch
-
-        coordinated_groups = _detect_coordinated_attacks(
-            similarity_matrix, anomalies_df, anomalies_indices
-        )
-
-        if not coordinated_groups:
-            print("No coordinated attacks found for network visualization")
-            return None, None
-
-        G = nx.Graph()
-        node_colors = {}
-        node_sizes = {}
-
-        if len(coordinated_groups) <= 12:
-            colors = plt.cm.tab10(np.linspace(0, 1, max(len(coordinated_groups), 10)))
-        else:
-            colors1 = plt.cm.tab10(np.linspace(0, 1, 10))
-            colors2 = plt.cm.Set1(np.linspace(0, 1, 9))
-            colors3 = plt.cm.Dark2(np.linspace(0, 1, 8))
-            colors4 = plt.cm.Set3(np.linspace(0, 1, 12))
-            colors = np.concatenate([colors1, colors2, colors3, colors4])[:len(coordinated_groups)]
-
-        for i, group in enumerate(coordinated_groups):
-            group_indices = group['indices']
-            group_color = colors[i]
-
-            for idx in group_indices:
-                if idx in anomalies_df.index:
-                    user_id = anomalies_df.loc[idx, 'user_id'] if 'user_id' in anomalies_df.columns else f"user_{idx}"
-                    G.add_node(idx, user_id=user_id, type='coordinated', group=i)
-                    node_colors[idx] = group_color
-            base_size = 300
-            size_multiplier = 1 + (group['size'] / 10)
-            similarity_multiplier = 1 + group['avg_similarity']
-            node_sizes[idx] = base_size * size_multiplier * similarity_multiplier
-
-            for j, idx1 in enumerate(group_indices):
-                for idx2 in group_indices[j + 1:]:
-                    if idx1 in anomalies_df.index and idx2 in anomalies_df.index and idx1 != idx2:
-                        G.add_edge(idx1, idx2, weight=group.get('avg_similarity', 0.8), group=i)
-
-        if len(G.nodes()) == 0:
-            print("No valid nodes for coordinated attacks visualization")
-            return None, None
-
-        fig, ax = plt.subplots(1, 1, figsize=(12, 10))
-        pos = nx.spring_layout(G, k=2, iterations=50)
-
-        for i, group in enumerate(coordinated_groups):
-            group_indices = group['indices']
-            group_color = colors[i]
-
-            group_edges = []
-            group_edge_weights = []
-
-            for j, idx1 in enumerate(group_indices):
-                for idx2 in group_indices[j + 1:]:
-                    if (idx1 in anomalies_df.index and idx2 in anomalies_df.index and
-                            G.has_edge(idx1, idx2)):
-                        group_edges.append((idx1, idx2))
-                        group_edge_weights.append(G[idx1][idx2]['weight'])
-
-            if group_edges:
-                edge_widths = [w * 4 for w in group_edge_weights]
-                nx.draw_networkx_edges(G, pos, edgelist=group_edges,
-                                       edge_color=group_color, alpha=0.7,
-                                       width=edge_widths, ax=ax)
-
-        node_color_list = [node_colors.get(node, 'gray') for node in G.nodes()]
-        node_size_list = [node_sizes.get(node, 300) for node in G.nodes()]
-
-        nx.draw_networkx_nodes(G, pos, node_color=node_color_list,
-                               node_size=node_size_list, alpha=0.8, ax=ax)
-
-        ax.set_title(f'Coordinated Attacks Network - {category}\n({len(coordinated_groups)} groups detected)',
-                     fontweight='bold', fontsize=14)
-        ax.axis('off')
-
-        group_info = [(group, colors[i], i) for i, group in enumerate(coordinated_groups)]
-        group_info.sort(key=lambda x: x[0]['size'])
-
-        legend_elements = []
-        for group, color, original_idx in group_info:
-            label = f"Group {original_idx + 1} ({group['size']} reviews, {group['unique_users']} users)"
-            legend_elements.append(Patch(facecolor=color, alpha=0.8, label=label))
-
-        ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1.02, 1))
-
-        plt.tight_layout()
-        plt.savefig(os.path.join(output_dir, 'coordinated_attacks_network.png'), dpi=300, bbox_inches='tight')
-        plt.close()
-
-        return G, coordinated_groups
-
-    except ImportError:
-        print("NetworkX not available for coordinated attacks visualization")
-        return None, None
-    except Exception as e:
-        print(f"Error creating coordinated attacks network graph: {e}")
-        return None, None
-
-
 def run_coordinated_attacks_analysis(anomalies_df: pd.DataFrame, output_dir: str, category: str) -> Dict:
     """
     Run complete coordinated attacks analysis including both analysis and visualizations.
@@ -470,10 +317,6 @@ def run_coordinated_attacks_analysis(anomalies_df: pd.DataFrame, output_dir: str
             anomalies_df, spam_patterns, attacks_plots_dir, category
         )
 
-    coord_graph, coordinated_groups = create_coordinated_attacks_network_graph(
-        anomalies_df, attacks_plots_dir, similarity_matrix, anomalies_indices, category
-    )
-
     results = {
         'spam_patterns': {
             'count': len(spam_patterns) if spam_patterns else 0,
@@ -481,114 +324,6 @@ def run_coordinated_attacks_analysis(anomalies_df: pd.DataFrame, output_dir: str
             'graph': spam_graph,
             'length_distribution': length_distribution_stats
         },
-        'coordinated_attacks': {
-            'count': len(coordinated_groups) if coordinated_groups else 0,
-            'groups': coordinated_groups or [],
-            'total_reviews_in_groups': sum(len(group['indices']) for group in (coordinated_groups or [])),
-            'graph': coord_graph
-        }
     }
 
     return results
-
-
-def main():
-    """Main function for command-line usage."""
-    parser = argparse.ArgumentParser(
-        description="Analyze coordinated attacks in DBSCAN anomaly detection results",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-
-    parser.add_argument(
-        '--anomaly-data-file',
-        type=str,
-        default='output/electronics_test_scan_anomalies_eps_0.8_min_samples_15_batch_size_100000.csv',
-        help='Path to DBSCAN anomaly detection results CSV'
-    )
-
-    parser.add_argument(
-        '--original-data',
-        type=str,
-        default='data/test/electronics_test.csv',
-        help='Path to original dataset CSV (optional, for comparison)'
-    )
-
-    parser.add_argument(
-        '--output-dir',
-        type=str,
-        default='evaluation_results',
-        help='Output directory for analysis results'
-    )
-
-    parser.add_argument(
-        '--category',
-        type=str,
-        default='electronics',
-        help='The category of the reviews'
-    )
-
-    args = parser.parse_args()
-
-    if not os.path.exists(args.anomaly_data_file):
-        print(f"❌ Anomaly data file not found: {args.anomaly_data_file}")
-        print("Please provide a valid path using --anomaly-data-file")
-        return
-
-    try:
-        anomalies_df = pd.read_csv(args.anomaly_data_file)
-
-        if 'text' not in anomalies_df.columns:
-            print("❌ Required column 'text' not found in anomaly data")
-            return
-
-        category_dir = os.path.join(args.output_dir, args.category)
-        os.makedirs(category_dir, exist_ok=True)
-
-        results = run_coordinated_attacks_analysis(anomalies_df, category_dir, args.category)
-
-        print("\n" + "=" * 60)
-        print("ANALYSIS RESULTS SUMMARY")
-        print("=" * 60)
-
-        spam_count = results['spam_patterns']['count']
-        coord_count = results['coordinated_attacks']['count']
-        total_coord_reviews = results['coordinated_attacks']['total_reviews_in_groups']
-
-        print(f"Spam Patterns Found: {spam_count}")
-        print(f"Coordinated Attack Groups Found: {coord_count}")
-        print(f"Total Reviews in Coordinated Groups: {total_coord_reviews}")
-
-        if spam_count > 0:
-            print(f"\nTop Spam Patterns:")
-            for i, pattern in enumerate(results['spam_patterns']['patterns'][:3]):
-                print(f"  Pattern {i + 1}: {pattern['review_count']} reviews from user {pattern['user_id']}")
-                print(f"    Average similarity: {pattern['avg_similarity']:.2f}")
-
-        if coord_count > 0:
-            print(f"\nTop Coordinated Attack Groups:")
-            for i, group in enumerate(results['coordinated_attacks']['groups'][:3]):
-                print(f"  Group {i + 1}: {group['size']} reviews from {group['unique_users']} users")
-                print(f"    Average similarity: {group['avg_similarity']:.3f}")
-
-        plots_dir = os.path.join(category_dir, "plots", "coordinated_attacks")
-        print(f"\n✓ Analysis complete! Results saved to:")
-        print(f"  - Plots directory: {plots_dir}")
-
-        if spam_count > 0:
-            print(f"  - Spam patterns network graph: {os.path.join(plots_dir, 'spamming_users_network.png')}")
-            print(
-                f"  - Spam review length distribution: {os.path.join(plots_dir, 'spam_review_length_distribution.png')}")
-
-        if coord_count > 0:
-            print(
-                f"  - Coordinated attacks network graph: {os.path.join(plots_dir, 'coordinated_attacks_network.png')}")
-
-    except Exception as e:
-        print(f"❌ Error during analysis: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return
-
-
-if __name__ == "__main__":
-    main()

@@ -7,7 +7,6 @@ import pandas as pd
 
 from analysis.basic_analysis import run_basic_metrics_analysis
 from analysis.user_analysis_visualization import run_user_analysis
-from analysis.length_analysis_visualization import run_length_analysis
 from analysis.coordinated_attacks_visualization import run_coordinated_attacks_analysis
 
 FEATURE_COLUMNS = [
@@ -28,7 +27,6 @@ class AnomalyDetectionEvaluator:
         Args:
             results_file: Path to DBSCAN anomaly detection results CSV
             original_data_file: Path to original dataset (optional, for comparison)
-            category: The category of the reviews
         """
         self.results_file = results_file
         self.original_data_file = original_data_file
@@ -50,10 +48,6 @@ class AnomalyDetectionEvaluator:
                 'std': data.std(),
                 'min': data.min(),
                 'max': data.max(),
-                'median': None,
-                'q25': None,
-                'q75': None,
-                'range': None
             }
         else:
             stats = {
@@ -61,12 +55,7 @@ class AnomalyDetectionEvaluator:
                 'std': data.std(),
                 'min': data.min(),
                 'max': data.max(),
-                'median': data.median(),
-                'q25': data.quantile(0.25),
-                'q75': data.quantile(0.75)
             }
-            stats['range'] = stats['max'] - stats['min']
-
         return stats
 
     def _load_data(self):
@@ -84,7 +73,6 @@ class AnomalyDetectionEvaluator:
             Dictionary with evaluation metrics
         """
         results = {}
-
         results['total_anomalies'] = len(self.anomalies_df)
 
         if self.original_df is not None:
@@ -126,10 +114,7 @@ class AnomalyDetectionEvaluator:
 
         results = {}
 
-        available_features = [col for col in FEATURE_COLUMNS
-                              if col in self.anomalies_df.columns and col in self.original_df.columns]
-
-        for feature in available_features:
+        for feature in FEATURE_COLUMNS:
             anomaly_mean = self.anomalies_df[feature].mean()
             original_mean = self.original_df[feature].mean()
             anomaly_std = self.anomalies_df[feature].std()
@@ -141,25 +126,12 @@ class AnomalyDetectionEvaluator:
             results[f'{feature}_mean_diff'] = mean_diff
             results[f'{feature}_std_ratio'] = std_ratio
 
-        if 'category' in self.anomalies_df.columns and 'category' in self.original_df.columns:
-            anomaly_cats = self.anomalies_df['category'].value_counts(normalize=True)
-            original_cats = self.original_df['category'].value_counts(normalize=True)
-
-            for category in set(anomaly_cats.index) | set(original_cats.index):
-                anomaly_pct = anomaly_cats.get(category, 0) * 100
-                original_pct = original_cats.get(category, 0) * 100
-                diff = anomaly_pct - original_pct
-
-                results[f'category_{category}_pct_diff'] = diff
-
         return results
 
     def generate_summary_report(self, output_file: str = "anomaly_evaluation_report.txt",
                                 anomaly_chars: dict = None, basic_results: dict = None,
-                                user_results: dict = None, length_results: dict = None,
-                                comparison_results: dict = None):
+                                user_results: dict = None, comparison_results: dict = None):
         """Generate a comprehensive summary report."""
-        print(f"\nGenerating summary report: {output_file}")
         anomaly_patterns = basic_results
         user_patterns = user_results
 
@@ -204,10 +176,7 @@ class AnomalyDetectionEvaluator:
             if comparison_results:
                 f.write("\nCOMPARISON WITH NORMAL DATA:\n")
                 for key, value in comparison_results.items():
-                    if key.startswith('rating_') and 'mean_diff' in key:
-                        f.write(f"• {key.replace('_', ' ').title()}: {value:+.3f}\n")
-                    elif key.startswith('category_') and 'pct_diff' in key:
-                        f.write(f"• {key.replace('_', ' ').title()}: {value:+.1f}%\n")
+                    f.write(f"• {key.replace('_', ' ').title()}: {value:+.3f}\n")
 
             f.write("\n")
 
@@ -216,12 +185,14 @@ class AnomalyDetectionEvaluator:
 
             f.write("Feature Statistics:\n")
             for key, value in anomaly_chars.items():
-                if key.startswith(
-                        ('rating_', 'helpful_', 'verified_', 'has_images_', 'predicted_', 'reviewer_', 'rating_vs_')):
-                    if isinstance(value, float):
-                        f.write(f"  {key}: {value:.4f}\n")
-                    else:
-                        f.write(f"  {key}: {value}\n")
+                if value is not None:
+                    if key.startswith(
+                            ('rating_', 'helpful_', 'verified_', 'has_images_', 'predicted_', 'reviewer_',
+                             'rating_vs_')):
+                        if isinstance(value, float):
+                            f.write(f"  {key}: {value:.4f}\n")
+                        else:
+                            f.write(f"  {key}: {value}\n")
 
             f.write("\n")
 
@@ -244,26 +215,6 @@ class AnomalyDetectionEvaluator:
 
                 f.write("\n")
 
-            if length_results:
-                f.write("Length Analysis Metrics:\n")
-                for key, value in length_results.items():
-                    if key.endswith('_stats') and isinstance(value, dict):
-                        f.write(f"  {key.replace('_', ' ').title()}:\n")
-                        for subkey, subvalue in value.items():
-                            if isinstance(subvalue, float):
-                                f.write(f"    {subkey}: {subvalue:.2f}\n")
-                            else:
-                                f.write(f"    {subkey}: {subvalue}\n")
-                    elif isinstance(value, (int, float)):
-                        if isinstance(value, float):
-                            f.write(f"  {key}: {value:.2f}\n")
-                        else:
-                            f.write(f"  {key}: {value}\n")
-                    elif isinstance(value, str):
-                        f.write(f"  {key}: {value}\n")
-
-                f.write("\n")
-
             if comparison_results:
                 f.write("Comparison with Original Data:\n")
                 for key, value in comparison_results.items():
@@ -282,7 +233,6 @@ class AnomalyDetectionEvaluator:
         plots_dir = os.path.join(category_dir, "plots")
         basic_results = run_basic_metrics_analysis(self.anomalies_df, self.original_df, plots_dir, self.category)
         user_results = run_user_analysis(self.anomalies_df, plots_dir, self.category)
-        length_results = run_length_analysis(self.anomalies_df, self.original_df, plots_dir, self.category)
         coordinated_results = run_coordinated_attacks_analysis(self.anomalies_df, plots_dir, self.category)
 
         comparison_results = {}
@@ -290,7 +240,7 @@ class AnomalyDetectionEvaluator:
             comparison_results = self.compare_with_original_data()
 
         report_file = os.path.join(category_dir, "evaluation_report.txt")
-        self.generate_summary_report(report_file, anomaly_chars, basic_results, user_results, length_results,
+        self.generate_summary_report(report_file, anomaly_chars, basic_results, user_results,
                                      comparison_results)
 
         all_metrics = {
@@ -298,7 +248,6 @@ class AnomalyDetectionEvaluator:
             'anomaly_characteristics': anomaly_chars,
             'basic_metrics': basic_results,
             'user_analysis': user_results,
-            'length_analysis': length_results,
             'coordinated_attacks': coordinated_results,
             'comparison_with_original': comparison_results
         }

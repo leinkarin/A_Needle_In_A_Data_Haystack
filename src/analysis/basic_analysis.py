@@ -12,10 +12,6 @@ sns.set_palette("husl")
 
 def create_rating_distribution_plot(anomalies_df: pd.DataFrame, output_dir: str, category: str = "books"):
     """Create rating distribution plot for anomalies."""
-    if 'rating' not in anomalies_df.columns:
-        print("Warning: 'rating' column not found in DataFrame")
-        return
-
     plt.figure(figsize=(10, 6))
     rating_counts = anomalies_df['rating'].value_counts().sort_index()
     plt.bar(rating_counts.index, rating_counts.values, alpha=0.7)
@@ -250,7 +246,8 @@ def create_comparison_plots(anomalies_df: pd.DataFrame, original_df: pd.DataFram
             plt.close()
 
 
-def create_basic_metrics_visualization(anomalies_df: pd.DataFrame, original_df: pd.DataFrame, output_dir: str, category: str = "books"):
+def create_basic_metrics_visualization(anomalies_df: pd.DataFrame, original_df: pd.DataFrame, output_dir: str,
+                                       category: str = "books"):
     basic_analysis_dir = os.path.join(output_dir, "basic_analysis")
     os.makedirs(basic_analysis_dir, exist_ok=True)
     create_rating_distribution_plot(anomalies_df, basic_analysis_dir, category)
@@ -266,18 +263,13 @@ def analyze_anomaly_patterns(anomalies_df: pd.DataFrame) -> Dict:
 
     if 'rating' in anomalies_df.columns and 'predicted_rating' in anomalies_df.columns:
         rating_diff = anomalies_df['rating'] - anomalies_df['predicted_rating']
-        mean_diff = rating_diff.mean()
-        std_diff = rating_diff.std()
-
         positive_diff = rating_diff > 0
         negative_diff = rating_diff < 0
-
-        results['mean_rating_diff'] = mean_diff
-        results['std_rating_diff'] = std_diff
-        results['positive_diff_count'] = positive_diff.sum()
-        results['negative_diff_count'] = negative_diff.sum()
         results['positive_diff_percentage'] = positive_diff.mean() * 100
         results['negative_diff_percentage'] = negative_diff.mean() * 100
+
+    if 'rating_diff' in anomalies_df.columns:
+        results['mean_rating_diff'] = anomalies_df['rating_diff'].mean()
 
     if 'helpful_vote' in anomalies_df.columns:
         helpful_votes = anomalies_df['helpful_vote']
